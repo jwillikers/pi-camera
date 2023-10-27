@@ -1,0 +1,11 @@
+[Unit]
+Description=Upload Pictures to S3-compatible objet storage
+Requires=network-online.target tailscale-online@quartz64.target
+After=network-online.target tailscale-online@quartz64.target
+StartLimitIntervalSec=3min
+
+[Service]
+ExecStart=/usr/bin/rclone --config=/etc/rclone/rclone.conf move /home/jordan/Pictures/ minio:pi-camera/rpi4b-01
+
+[Install]
+WantedBy=default.target

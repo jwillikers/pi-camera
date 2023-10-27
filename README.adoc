@@ -1,0 +1,77 @@
+= Pi Camera
+Jordan Williams <jordan@jwillikers.com>
+:experimental:
+:icons: font
+:keywords: camera photo pi picamera python raspberry
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
+Based on Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera] project.
+
+Raspberry Pi OS 5 - Debian Bookworm
+Raspberry Pi 4 Model B (2 GB RAM or better)
+Pimoroni Hyperpixel 4.0
+Adafruit PCF8574 I2C GPIO Expander
+[Twidec 12mm momentary push button](https://amzn.to/3ijIj0C)
+USB-C battery bank and USB-C cable for powering the Pi
+Raspberry Pi Camera Module 3
+128GB microSD card
+// todo Stemma Qt jumpers cable
+
+Wayland
+
+
+https://github.com/raspberrypi/documentation/blob/develop/documentation/asciidoc/computers/configuration/display-rotation.adoc
+
+[,sh]
+----
+kmsprint | grep Connector
+Connector 0 (32) HDMI-A-1 (disconnected)
+Connector 1 (42) HDMI-A-2 (disconnected)
+Connector 2 (48) DPI-1 (connected)
+----
+
+[,sh]
+----
+WAYLAND_DISPLAY=wayland-1 wlr-randr --output DPI-1 --transform 90
+----
+
+https://github.com/WayfireWM/wayfire-wiki/blob/master/Configuration.md
+
+.~/.config/wayfire.ini
+[,ini]
+----
+[output:DPI-1]
+transform = 90
+----
+
+sudo apt -y install python3-picamera2
+
+python3 -m venv ~/pi-camera-venv
+
+source ~/pi-camera-venv/bin/activate.fish
+
+python3 -m pip install pip-tools
+
+pip-tools install ...
+
+adafruit-circuitpython-bitbangio
+
+== Code of Conduct
+
+The project's Code of Conduct is available in the link:CODE_OF_CONDUCT.adoc[Code of Conduct] file.
+
+== License
+
+This repository is licensed under the https://www.gnu.org/licenses/gpl-3.0.html[GPLv3], available in the link:LICENSE.adoc[license file].
+
+© 2023 Jordan Williams
+
+== Authors
+
+mailto:{email}[{author}]

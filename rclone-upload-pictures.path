@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch the Pictures directory for changes
+StartLimitIntervalSec=3min
+
+[Path]
+PathChanged=/home/jordan/Pictures
+PathExistsGlob=/home/jordan/Pictures/*.jpg
+MakeDirectory=true
+#TriggerLimitIntervalSec=3min
+
+[Install]
+WantedBy=default.target
