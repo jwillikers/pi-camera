@@ -23,6 +23,8 @@ Raspberry Pi Camera Module 3
 128GB microSD card
 // todo Stemma Qt jumpers cable
 
+// todo Use jazzband/pip-tools to manage Python dependencies.
+
 Wayland
 
 
