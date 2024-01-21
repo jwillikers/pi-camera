@@ -10,6 +10,7 @@ adafruit-blinka==8.30.0 \
     # via
     #   adafruit-circuitpython-bitbangio
     #   adafruit-circuitpython-busdevice
+    #   adafruit-circuitpython-pcf8574
     #   adafruit-circuitpython-requests
     #   adafruit-circuitpython-typing
 adafruit-circuitpython-bitbangio==1.3.13 \
@@ -19,7 +20,13 @@ adafruit-circuitpython-bitbangio==1.3.13 \
 adafruit-circuitpython-busdevice==5.2.6 \
     --hash=sha256:9f25577843f0a338a0936a1b57436f4451f7783b38e3cf46160b6be78faeaa44 \
     --hash=sha256:ed06f5552e5567b0c89589c5bc6ef3adcac67d59eb505ce9127af99f33c2bc90
-    # via adafruit-circuitpython-typing
+    # via
+    #   adafruit-circuitpython-pcf8574
+    #   adafruit-circuitpython-typing
+adafruit-circuitpython-pcf8574==1.0.8 \
+    --hash=sha256:651b202011c1eaf0b201c0822d82f8ef910802e148eafe12dda7b48344e83323 \
+    --hash=sha256:e91cc4cb96090a5b6a3559c73fcbdf43ad11985f8edbea1411e5b7bac7c5c2a5
+    # via -r requirements.in
 adafruit-circuitpython-requests==2.0.4 \
     --hash=sha256:7d5e66de34d8b096b275f92142f9d867990abc808361263e4c1e1155d705bb35 \
     --hash=sha256:d72290a83351cb4cb9cfe75b03f55301d158095c2fc04052a90a825ec060b67b

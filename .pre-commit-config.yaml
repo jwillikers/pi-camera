@@ -37,3 +37,6 @@ repos:
     rev: v3.0.3
     hooks:
       - id: pylint
+        additional_dependencies:
+        - adafruit-circuitpython-bitbangio
+        - adafruit-circuitpython-pcf8574

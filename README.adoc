@@ -92,7 +92,7 @@ I like fish, tmux, and vim, what can I say?
 +
 [,sh]
 ----
-sudo apt-get --yes install apt-transport-https firewalld fish git python3-picamera2 python3-venv raspberrypi-ui-mods rclone tmux vim
+sudo apt-get --yes install apt-transport-https firewalld fish git python3-dev python3-picamera2 python3-venv raspberrypi-ui-mods rclone tmux vim wlr-randr
 ----
 
 . Install Tailscale.
@@ -134,11 +134,18 @@ Modify or omit the `--exit-node` flag as necessary.
 sudo tailscale up --exit-node=fd7a:115c:a1e0:ab12:4843:cd96:625f:e80c
 ----
 
-. Clone this project's repository, again.
+. Make the `~/Projects` directory.
 +
 [,sh]
 ----
-git clone https://github.com/jwillikers/pi-camera.git
+mkdir --parents ~/Projects
+----
+
+. Clone this project's repository, again, to the `~/Projects` directory.
++
+[,sh]
+----
+git -C ~/Projects clone https://github.com/jwillikers/pi-camera.git
 ----
 
 . Change to the project's root directory.
@@ -159,7 +166,7 @@ ln --relative --symbolic wayfire.ini ~/.config/wayfire.ini
 +
 [,sh]
 ----
-python -m venv ~/pi-camera-venv
+python -m venv --system-site-packages ~/pi-camera-venv
 ----
 
 . Activate the virtual environment.
@@ -420,6 +427,10 @@ WAYLAND_DISPLAY=wayland-1 wlr-randr --output DPI-1 --transform 90
 [output:DPI-1]
 transform = 90
 ----
+
+== See Also
+
+* https://github.com/Gordon999/RPiCamGUI[RPiCamGUI]
 
 == Code of Conduct
 

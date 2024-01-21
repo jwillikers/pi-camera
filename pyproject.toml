@@ -15,6 +15,7 @@ dev-dependencies = { file = ["requirements-dev.in"] }
 [tool.pylint.messages_control]
 disable = [
     "fixme",
+    "import-error",
     "invalid-name",
     "line-too-long",
     "missing-class-docstring",
