@@ -11,8 +11,9 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 :picamera2: https://github.com/raspberrypi/picamera2[picamera2]
+:pip-tools: https://github.com/jazzband/pip-tools[pip-tools]
 
-Based on Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera] project.
+A Raspberry Pi camera based on Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera] project.
 
 Raspberry Pi OS 5 - Debian Bookworm
 Raspberry Pi 4 Model B (2 GB RAM or better)
@@ -86,13 +87,12 @@ sudo apt-get update
 sudo apt-get --yes full-upgrade
 ----
 
-// ? sudo apt -y install python3-picamera2
 . Install the necessary and unnecessary packages.
 I like fish, tmux, and vim, what can I say?
 +
 [,sh]
 ----
-sudo apt-get --yes install apt-transport-https ffmpeg firewalld fish git libatlas-base-dev python3-kms++ python3-libcamera python3-prctl python3-pyqt5 python3-venv raspberrypi-ui-mods rclone tmux vim
+sudo apt-get --yes install apt-transport-https firewalld fish git python3-picamera2 python3-venv raspberrypi-ui-mods rclone tmux vim
 ----
 
 . Install Tailscale.
@@ -176,7 +176,7 @@ source ~/pi-camera-venv/bin/activate.fish
 python -m pip install --requirement requirements.txt
 ----
 
-. Exit the project's virtual environment.
+. Exit the virtual environment.
 +
 [,sh]
 ----
@@ -298,7 +298,7 @@ sudo chmod 0600 /etc/rclone/rclone.conf
 +
 [,sh]
 ----
-sudo cp systemd/system/* /etc/systemd/system
+sudo cp systemd/system/* /etc/systemd/system/
 ----
 
 . Enable and start the systemd service `rclone-upload-pictures.path` unit.
