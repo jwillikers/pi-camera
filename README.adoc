@@ -10,6 +10,7 @@ ifdef::env-github[]
 :caution-caption: :fire:
 :warning-caption: :warning:
 endif::[]
+:picamera2: https://github.com/raspberrypi/picamera2[picamera2]
 
 Based on Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera] project.
 
@@ -23,12 +24,382 @@ Raspberry Pi Camera Module 3
 128GB microSD card
 // todo Stemma Qt jumpers cable
 
-// todo Use jazzband/pip-tools to manage Python dependencies.
-
 Wayland
 
+// todo Document the tailscale-online target.
+
+== Install
+
+. Install Raspberry Pi OS to a microSD card.
+I recommend creating the user `pi-camera` as part of the installation.
+
+. Clone this project's repository.
++
+[,sh]
+----
+git clone https://github.com/jwillikers/pi-camera.git
+----
+
+. Change to the project's root directory.
++
+[,sh]
+----
+cd pi-camera
+----
+
+. After installation, mount the _bootfs_ volume on the microSD card.
++
+[,sh]
+----
+udisksctl mount --block-device /dev/sdx1
+----
+
+. Append the contents of the `boot/firmware/config.txt.append` file to the `config.txt` file on the _bootfs_ partition.
++
+[,sh]
+----
+cat boot/firmware/config.txt.append | tee append /run/media/$USER/bootfs/config.txt
+----
+
+. Unmount the _bootfs_ partition.
++
+[,sh]
+----
+udisksctl unmount --block-device (findmnt --noheadings --output SOURCE --target /run/media/$USER/bootfs)
+----
+
+. Insert the microSD card into the Raspberry Pi.
+
+. Boot the Raspberry Pi.
+
+. Update the package lists.
++
+[,sh]
+----
+sudo apt-get update
+----
+
+. Upgrade everything.
++
+[,sh]
+----
+sudo apt-get --yes full-upgrade
+----
+
+// ? sudo apt -y install python3-picamera2
+. Install the necessary and unnecessary packages.
+I like fish, tmux, and vim, what can I say?
++
+[,sh]
+----
+sudo apt-get --yes install apt-transport-https ffmpeg firewalld fish git libatlas-base-dev python3-kms++ python3-libcamera python3-prctl python3-pyqt5 python3-venv raspberrypi-ui-mods rclone tmux vim
+----
+
+. Install Tailscale.
+
+.. Add the Tailscale signing key to the system keyring.
++
+[,sh]
+----
+curl -fsSL https://pkgs.tailscale.com/stable/raspbian/bullseye.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg > /dev/null
+----
+
+.. Add the Tailscale repository to the system.
++
+[,sh]
+----
+curl -fsSL https://pkgs.tailscale.com/stable/raspbian/bullseye.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
+----
+
+.. Refresh the packages.
++
+[,sh]
+----
+sudo apt-get update
+----
+
+.. Install the Tailscale package.
++
+[,sh]
+----
+sudo apt-get --yes install tailscale
+----
+
+.. Start Tailscale and authenticate.
+I use an exit node to route all traffic through Tailscale.
+Modify or omit the `--exit-node` flag as necessary.
++
+[,sh]
+----
+sudo tailscale up --exit-node=fd7a:115c:a1e0:ab12:4843:cd96:625f:e80c
+----
+
+. Clone this project's repository, again.
++
+[,sh]
+----
+git clone https://github.com/jwillikers/pi-camera.git
+----
+
+. Change to the project's root directory.
++
+[,sh]
+----
+cd pi-camera
+----
+
+. Create a symlink of the `wayfire.ini` file in the `~/.config` directory.
++
+[,sh]
+----
+ln --relative --symbolic wayfire.ini ~/.config/wayfire.ini
+----
+
+. Create a virtual environment for the project.
++
+[,sh]
+----
+python -m venv ~/pi-camera-venv
+----
+
+. Activate the virtual environment.
++
+[,sh]
+----
+source ~/pi-camera-venv/bin/activate.fish
+----
+
+. Install the dependencies in the venv.
++
+[,sh]
+----
+python -m pip install --requirement requirements.txt
+----
+
+. Exit the project's virtual environment.
++
+[,sh]
+----
+exit
+----
+
+. Configure storage for the photos as necessary.
+I'm using my MinIO instance and a dedicated `pi-camera` bucket for the pictures.
+The instructions here are for MinIO and _should not_ be run on the pi itself.
+Run these commands on your hopefully more secure computer.
+My MinIO server configuration is documented in my https://github.com/jwillikers/home-lab-helm[Home Lab Helm] project.
+
+.. Create a configuration to access the MinIO server.
++
+[,sh]
+----
+podman run \
+  --interactive \
+  --name minio-client \
+  --rm \
+  --tty \
+  --user $(id -u):$(id -g) \
+  --userns keep-id \
+  --volume minio-client-config:/.mc:Z \
+  quay.io/minio/mc:latest \
+  alias set jwillikers https://minio.jwillikers.io
+mc: Configuration written to `/.mc/config.json`. Please update your access credentials.
+mc: Successfully created `/.mc/share`.
+mc: Initialized share uploads `/.mc/share/uploads.json` file.
+mc: Initialized share downloads `/.mc/share/downloads.json` file.
+Enter Access Key: abcde123
+Enter Secret Key:
+Added `jwillikers` successfully.
+----
+
+.. Create a `pi-camera` bucket in MinIO to store the pictures.
++
+[,sh]
+----
+podman run \
+  --interactive \
+  --name minio-client \
+  --rm \
+  --tty \
+  --user $(id -u):$(id -g) \
+  --userns keep-id \
+  --volume minio-client-config:/.mc:Z \
+  quay.io/minio/mc:latest \
+  mb jwillikers/pi-camera
+----
+
+.. Place a quota on the `pi-camera` bucket to prevent uploading too much data, which could be accidental or malicious.
++
+[,sh]
+----
+podman run \
+  --interactive \
+  --name minio-client \
+  --rm \
+  --tty \
+  --user $(id -u):$(id -g) \
+  --userns keep-id \
+  --volume minio-client-config:/.mc:Z \
+  quay.io/minio/mc:latest \
+  mc quota set jwillikers/pi-camera --size 200gi
+----
+
+.. Generate an access token for the Minio server which uses the `pi-camera-minio-policy.json` policy.
+This policy allows only the minimal access necessary for Rclone to upload files to the bucket.
++
+[,sh]
+----
+podman run \
+  --interactive \
+  --name minio-client \
+  --rm \
+  --tty \
+  --user $(id -u):$(id -g) \
+  --userns keep-id \
+  --volume minio-client-config:/.mc:Z \
+  --volume ./pi-camera-minio-policy.json:/pi-camera-minio-policy.json:Z \
+  quay.io/minio/mc:latest \
+  admin user svcacct add --description "Pi Camera" --name "Pi Camera" --policy "pi-camera-minio-policy.json" jwillikers core
+Access Key: XXXXXXXXXXXXXXXXXXXX
+Secret Key: ****************************************
+Expiration: no-expiry
+----
+
+. Create the Rclone configuration directory `/etc/rclone`.
++
+[,sh]
+----
+sudo mkdir --parents /etc/rclone/
+----
+
+. Configure the Rclone credentials in `/etc/rclone/rclone.conf`.
++
+./etc/rclone/rclone.conf
+[,ini]
+----
+[minio]
+type = s3
+provider = Minio
+access_key_id = ********************
+secret_access_key = ****************************************
+region = us-east-1
+endpoint = https://minio.jwillikers.io
+acl = private
+----
+
+. Ensure that only the owner can read and write the `rclone.conf` file.
++
+[,sh]
+----
+sudo chmod 0600 /etc/rclone/rclone.conf
+----
+
+. Copy the systemd units in the `systemd/system` directory to the `/etc/systemd/system/` directory.
++
+[,sh]
+----
+sudo cp systemd/system/* /etc/systemd/system
+----
+
+. Enable and start the systemd service `rclone-upload-pictures.path` unit.
+This unit will automatically run the similarly named service whenever new pictures are added to this directory.
++
+[,sh]
+----
+sudo systemctl enable --now rclone-upload-pictures.path
+----
+
+. Create the systemd directory for user units.
++
+[,sh]
+----
+mkdir --parents ~/.config/systemd/user
+----
+
+. Symlink the `pi-camera.service` unit to `~/.config/systemd/user/pi-camera.service`.
++
+[,sh]
+----
+ln --relative --symbolic systemd/user/pi-camera.service ~/.config/systemd/user/pi-camera.service
+----
+
+. Enable and start the camera.
++
+[,sh]
+----
+systemctl --user enable --now pi-camera.service
+----
+
+== Development
+
+It's recommended to use the provided {pre-commit} checks when developing.
+
+. Create a virtual environment.
++
+[,sh]
+----
+python -m venv .env
+----
+
+. Activate the virtual environment.
++
+[,sh]
+----
+source .env/bin/activate.fish
+----
+
+. Install the development packages.
++
+[,sh]
+----
+python -m pip install -r requirements-dev.txt
+----
+
+. Install the packages.
+This project uses pip-tools to synchronize virtual environments for development.
+Sync your virtual environments packages with those pinned in the `requirements.txt` and `requirements-dev.txt` files with the `pip-sync` command.
++
+[,sh]
+----
+pip-sync requirements-dev.txt requirements.txt
+----
+
+. Install the Git hooks for pre-commit.
++
+[,sh]
+----
+pre-commit install
+----
+
+. Upgrade the packages pinned in the `requirements.txt` file with the `pip-compile` command.
++
+[,sh]
+----
+pip-compile \
+  --allow-unsafe \
+  --generate-hashes \
+  --reuse-hashes \
+  --upgrade \
+  requirements.in
+----
+
+. The pinned development packages in the `requirements-dev.txt` file can be upgraded in the same fashion.
++
+[,sh]
+----
+pip-compile \
+  --allow-unsafe \
+  --generate-hashes \
+  --reuse-hashes \
+  --upgrade \
+  requirements-dev.in
+----
+
+== Configure Screen Orientation
 
 https://github.com/raspberrypi/documentation/blob/develop/documentation/asciidoc/computers/configuration/display-rotation.adoc
+
+https://github.com/WayfireWM/wayfire-wiki/blob/master/Configuration.md
 
 [,sh]
 ----
@@ -43,26 +414,12 @@ Connector 2 (48) DPI-1 (connected)
 WAYLAND_DISPLAY=wayland-1 wlr-randr --output DPI-1 --transform 90
 ----
 
-https://github.com/WayfireWM/wayfire-wiki/blob/master/Configuration.md
-
 .~/.config/wayfire.ini
 [,ini]
 ----
 [output:DPI-1]
 transform = 90
 ----
-
-sudo apt -y install python3-picamera2
-
-python3 -m venv ~/pi-camera-venv
-
-source ~/pi-camera-venv/bin/activate.fish
-
-python3 -m pip install pip-tools
-
-pip-tools install ...
-
-adafruit-circuitpython-bitbangio
 
 == Code of Conduct
 
@@ -72,7 +429,7 @@ The project's Code of Conduct is available in the link:CODE_OF_CONDUCT.adoc[Code
 
 This repository is licensed under the https://www.gnu.org/licenses/gpl-3.0.html[GPLv3], available in the link:LICENSE.adoc[license file].
 
-© 2023 Jordan Williams
+© 2023-2024 Jordan Williams
 
 == Authors
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=Start the camera
+After=default.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 1
+ExecStart=%h/pi-camera-venv/bin/python %h/pi-camera-venv/camera.py
+Restart=on-failure
+RestartSec=10
+KillMode=process
+
+[Install]
+# todo Use the graphical-session.target when it becomes available.
+WantedBy=default.target

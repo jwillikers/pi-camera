@@ -1,0 +1,7 @@
+
+# Pi Camera configuration
+[all]
+dtoverlay=vc4-kms-v3d,cma-512
+dtoverlay=vc4-kms-dpi-hyperpixel4
+# dtparam=rotate=90,touchscreen-swapped-x-y,touchscreen-inverted-y
+dtparam=rotate=270,touchscreen-swapped-x-y,touchscreen-inverted-x
