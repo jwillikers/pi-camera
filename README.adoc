@@ -10,69 +10,258 @@ ifdef::env-github[]
 :caution-caption: :fire:
 :warning-caption: :warning:
 endif::[]
+:Immich: https://immich.app/[Immich]
+:MinIO: https://min.io/[MinIO]
 :picamera2: https://github.com/raspberrypi/picamera2[picamera2]
 :pip-tools: https://github.com/jazzband/pip-tools[pip-tools]
+:podman: https://podman.io/[podman]
+:Raspberry-Pi-Camera: https://github.com/geerlingguy/pi-camera[Jeff Geerling's Raspberry Pi Camera]
+:Rclone: https://rclone.org/[Rclone]
+:systemd: https://systemd.io/[systemd]
+:Getting-Started-with-HyperPixel-4-0: https://learn.pimoroni.com/article/getting-started-with-hyperpixel-4[Getting Started with HyperPixel 4.0]
 
-A Raspberry Pi camera based on Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera] project.
+A minimal Raspberry Pi camera that automatically syncs your photos.
+It is based on {Raspberry-Pi-Camera} project.
 
-Raspberry Pi OS 5 - Debian Bookworm
-Raspberry Pi 4 Model B (2 GB RAM or better)
-Pimoroni Hyperpixel 4.0
-Adafruit PCF8574 I2C GPIO Expander
-[Twidec 12mm momentary push button](https://amzn.to/3ijIj0C)
-USB-C battery bank and USB-C cable for powering the Pi
-Raspberry Pi Camera Module 3
-128GB microSD card
-// todo Stemma Qt jumpers cable
+ifdef::env-github[]
+++++
+<p align="center">
+  <img  alt="Pi Camera Front Hand" src="pics/Pi Camera Front Hand.jpg?raw=true"/>
+</p>
+++++
+endif::[]
 
-Wayland
+ifndef::env-github[]
+image::pics/Pi Camera Front Hand.jpg[Pi Camera Front Hand, align=center]
+endif::[]
 
-// todo Document the tailscale-online target.
+== Overview
+
+The Pi Camera is a minimal digital camera build which automatically uploads your photographs.
+When a picture is taken and saved to the `~/Pictures` directory, its presence is automatically detected by {systemd}.
+When an internet connection is next available, systemd uploads the photos to S3-compatible object storage with {Rclone}.
+The photos are then removed from local storage.
+I plan on adding support for {Immich} as well.
+This repository documents how I've made the camera, the configuration files I've used, and the procedure to create the camera.
+
+== Components
+
+The Pi Camera is based off of the Raspberry Pi 4 and the Camera Module 3.
+The camera uses Pimoroni's HyperPixel 4.0 screen which has good support in the Raspberry Pi kernel and full graphics acceleration.
+The screen also works under Wayland.
+A momentary push button is used to take pictures.
+The HyperPixel 4.0 screen takes up all of the pins, only exposing an I2C bus.
+The PCF8574 I2C GPIO Expander is used to connect the momentary push button to the Raspberry Pi.
+
+[NOTE]
+====
+Although the Raspberry Pi 5 is now out, it requires active cooling and a higher power input.
+This makes it less suitable for a portable camera than the Raspberry Pi 4.
+====
+
+.Pi Camera Components
+* https://www.raspberrypi.com/products/raspberry-pi-4-model-b/[Raspberry Pi 4 Model B] (2 GB RAM or better)
+* https://www.raspberrypi.com/products/camera-module-3/[Raspberry Pi Camera Module 3]
+* https://www.adafruit.com/product/1646[100mm Flex Cable for Raspberry Pi Camera]
+* https://www.arducam.com/product/white-camera-enclosure-case-pi-cameras/[Camera Enclosure Case for Raspberry Pi Camera Module 3/V1/V2 and Arducam 16MP/64MP Camera]
+* https://shop.pimoroni.com/products/hyperpixel-4?variant=12569485443155[Pimoroni HyperPixel 4.0 - Hi-Res Display for Raspberry Pi - Touch]
+* https://www.adafruit.com/product/5545[Adafruit PCF8574 I2C GPIO Expander]
+* https://www.adafruit.com/product/4209[STEMMA QT / Qwiic JST SH 4-pin to Premium Male Headers Cable - 150mm Long]
+* https://amzn.to/3ijIj0C[Twidec 12mm momentary push button]
+* A sufficiently large and performant microSD card.
+The https://www.samsung.com/us/computing/memory-storage/memory-cards/pro-ultimate-adapter-microsdxc-128gb-mb-my128sa-am/[128GB Samsung Pro Ultimate] and https://www.samsung.com/us/computing/memory-storage/memory-cards/pro-endurance-adapter-microsdxc-128gb-mb-mj128ka-am/[128GB Samsung Pro Endurance] are two good options.
+* A USB battery bank.
+I'd recommend getting a battery with at least a 5000mAh capacity with the smallest form factor possible.
+I use the https://www.adafruit.com/product/4288[USB Li-Ion Power Bank with 2 x 5V Outputs @ 2.1A - 5000mAh].
+* A USB-C cable for powering the Pi.
+* A case.
+I found that LEGO Technics make a pretty sturdy case.
+A minimal $13 LEGO Technics set was sufficient for making the enclosure for the camera.
+I bought a second to make the case even better and add an enclosure for the battery.
+I've been avoiding dealing with CAD files, but it should be possible to make some modifications to the CAD files from Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera] to account for the HyperPixel 4.0 screen.
+
+== Build
+
+The build is pretty straightforward.
+It requires solder and a soldering iron to wire the PCF8574 to the momentary push button.
+
+ifdef::env-github[]
+++++
+<p align="center">
+  <img  alt="Pi Camera PCF8574" src="pics/Pi Camera PCF8574.jpg?raw=true"/>
+</p>
+++++
+endif::[]
+
+ifndef::env-github[]
+image::pics/Pi Camera PCF8574.jpg[Pi Camera PCF8574, align=center]
+endif::[]
+
+. Trim the length of the wires on the momentary push button.
+They can be trimmed pretty short, but keep enough room to make up for any mistakes.
+I only kept a couple of centimeters on each wire.
+. Solder the leads of the momentary push button to the PCF8574 I2C GPIO Expander breakout.
+Solder the black lead to ground and the red lead to `P0`.
+. Attach the HyperPixel 4.0 to the Raspberry Pi.
+Follow the instructions from {Getting-Started-with-HyperPixel-4-0}.
+. Plug the male header pins on the STEMMA QT / Qwiic JST SH 4-pin to Premium Male Headers Cable to the HyperPixel 4.0.
+With the screen face up, and the pins and micro HDMI ports facing towards you, the pins are ordered ground, clock, data, and power from left to right.
+The associated cable colors are documented in the following table.
+
+.Stemma Qt / Qwiic Cable Colors
+[cols="1,1"]
+|===
+| Function | Color
+
+| Ground | Black
+| Clock | Yellow
+| Data | Blue
+| Power | Red
+|===
+
+. Attach the JST SH plug on STEMMA QT / Qwiic cable to the PCF8574 breakout.
+It can be connected to either end of the board.
+. Connect the flex cable to the 2-lane MIPI CSI camera port on the Raspberry Pi.
+This port is next to the audio jack on the Raspberry Pi 4 Model B.
+The side with the silver lines should face towards the micro HDMI ports.
+The blue side should face towards the USB ports.
+This process is documented by Raspberry Pi in the https://www.raspberrypi.com/documentation/accessories/camera.html#connecting-the-camera[Connecting the Camera] section of the Camera page.
++
+[CAUTION]
+====
+Be gentle with the camera port, as they are fairly breakable.
+====
+
+. Connect the other end of the flex cable to the Raspberry Pi Camera Module 3.
+The silver lines should be facing up, towards the camera's lens.
+. Install the camera module in the camera enclosure case.
+. Fit the case.
+I'm not going to detail my ad-hoc case build, though hopefully the pictures provide some guidance.
+However, be aware that the camera module should be positioned upright.
+This is confusing because upright actually looks sideways with how the text is printed on the camera module.
+This is important because the picamera2 library only allows flipping the image 180° at this time.
+Other software techniques are necessary to flip the camera image 90° or 270°.
+Issues https://github.com/raspberrypi/picamera2/issues/492[#492], https://github.com/raspberrypi/picamera2/issues/774[#774], and https://github.com/raspberrypi/picamera2/issues/792[#792] in the https://github.com/raspberrypi/picamera2[picamera2 Project] request this functionality.
+
+== Storage
+
+The photos are uploaded somewhere, which requires some configuration.
+I'm using a self-hosted MinIO instance with a dedicated `pi-camera` bucket for the pictures.
+These instructions describe how to create the `pi-camera` bucket and generate an access key with the required write-access necessary to upload the photos with Rclone.
+The instructions assume that {Podman} is installed.
+My MinIO server configuration is documented in my https://github.com/jwillikers/home-lab-helm[Home Lab Helm] repository.
+
+[NOTE]
+====
+These commands are _not_ meant to be run the Pi itself.
+Run these commands on your hopefully more secure computer.
+====
+
+. Create a configuration to access the MinIO server.
++
+[,sh]
+----
+podman run \
+  --interactive \
+  --name minio-client \
+  --rm \
+  --tty \
+  --user $(id -u):$(id -g) \
+  --userns keep-id \
+  --volume minio-client-config:/.mc:Z \
+  quay.io/minio/mc:latest \
+  alias set jwillikers https://minio.jwillikers.io
+mc: Configuration written to `/.mc/config.json`. Please update your access credentials.
+mc: Successfully created `/.mc/share`.
+mc: Initialized share uploads `/.mc/share/uploads.json` file.
+mc: Initialized share downloads `/.mc/share/downloads.json` file.
+Enter Access Key: abcde123
+Enter Secret Key:
+Added `jwillikers` successfully.
+----
+
+. Create a `pi-camera` bucket in MinIO to store the pictures.
++
+[,sh]
+----
+podman run \
+  --interactive \
+  --name minio-client \
+  --rm \
+  --tty \
+  --user $(id -u):$(id -g) \
+  --userns keep-id \
+  --volume minio-client-config:/.mc:Z \
+  quay.io/minio/mc:latest \
+  mb jwillikers/pi-camera
+----
+
+. Place a quota on the `pi-camera` bucket to prevent uploading too much data.
++
+[,sh]
+----
+podman run \
+  --interactive \
+  --name minio-client \
+  --rm \
+  --tty \
+  --user $(id -u):$(id -g) \
+  --userns keep-id \
+  --volume minio-client-config:/.mc:Z \
+  quay.io/minio/mc:latest \
+  mc quota set jwillikers/pi-camera --size 200gi
+----
+
+. Generate an access token for the Minio server which uses the `pi-camera-minio-policy.json` policy.
+This policy allows only the minimal access necessary for Rclone to upload files to the bucket.
++
+[,sh]
+----
+podman run \
+  --interactive \
+  --name minio-client \
+  --rm \
+  --tty \
+  --user $(id -u):$(id -g) \
+  --userns keep-id \
+  --volume minio-client-config:/.mc:Z \
+  --volume ./pi-camera-minio-policy.json:/pi-camera-minio-policy.json:Z \
+  quay.io/minio/mc:latest \
+  admin user svcacct add --description "Pi Camera" --name "Pi Camera" --policy "pi-camera-minio-policy.json" jwillikers core
+Access Key: XXXXXXXXXXXXXXXXXXXX
+Secret Key: ****************************************
+Expiration: no-expiry
+----
 
 == Install
 
-. Install Raspberry Pi OS to a microSD card.
-I recommend creating the user `pi-camera` as part of the installation.
-
-. Clone this project's repository.
-+
-[,sh]
-----
-git clone https://github.com/jwillikers/pi-camera.git
-----
-
-. Change to the project's root directory.
-+
-[,sh]
-----
-cd pi-camera
-----
-
-. After installation, mount the _bootfs_ volume on the microSD card.
-+
-[,sh]
-----
-udisksctl mount --block-device /dev/sdx1
-----
-
-. Append the contents of the `boot/firmware/config.txt.append` file to the `config.txt` file on the _bootfs_ partition.
-+
-[,sh]
-----
-cat boot/firmware/config.txt.append | tee append /run/media/$USER/bootfs/config.txt
-----
-
-. Unmount the _bootfs_ partition.
-+
-[,sh]
-----
-udisksctl unmount --block-device (findmnt --noheadings --output SOURCE --target /run/media/$USER/bootfs)
-----
-
+. Install 64-bit full version of https://www.raspberrypi.com/software/[Raspberry Pi OS] to a microSD card.
+The configuration files assume the primary user is `pi-camera`, which can be configured when using Raspberry Pi Imager to write the image.
+This project has been tested with Raspberry Pi OS 5 based on Debian Bookworm.
 . Insert the microSD card into the Raspberry Pi.
-
 . Boot the Raspberry Pi.
+. Make the `~/Projects` directory.
++
+[,sh]
+----
+mkdir --parents ~/Projects
+----
 
+. Clone this project's repository, again, to the `~/Projects` directory.
++
+[,sh]
+----
+git -C ~/Projects clone https://github.com/jwillikers/pi-camera.git
+----
+
+. Append the contents of the `boot/firmware/config.txt.append` file to the `/boot/firmware/config.txt` file.
++
+[,sh]
+----
+cat boot/firmware/config.txt.append | tee append /boot/firmware/config.txt
+----
+
+. Reboot.
 . Update the package lists.
 +
 [,sh]
@@ -96,7 +285,6 @@ sudo apt-get --yes install apt-transport-https firewalld fish git python3-dev py
 ----
 
 . Install Tailscale.
-
 .. Add the Tailscale signing key to the system keyring.
 +
 [,sh]
@@ -132,20 +320,6 @@ Modify or omit the `--exit-node` flag as necessary.
 [,sh]
 ----
 sudo tailscale up --exit-node=fd7a:115c:a1e0:ab12:4843:cd96:625f:e80c
-----
-
-. Make the `~/Projects` directory.
-+
-[,sh]
-----
-mkdir --parents ~/Projects
-----
-
-. Clone this project's repository, again, to the `~/Projects` directory.
-+
-[,sh]
-----
-git -C ~/Projects clone https://github.com/jwillikers/pi-camera.git
 ----
 
 . Change to the project's root directory.
@@ -188,88 +362,6 @@ python -m pip install --requirement requirements.txt
 [,sh]
 ----
 exit
-----
-
-. Configure storage for the photos as necessary.
-I'm using my MinIO instance and a dedicated `pi-camera` bucket for the pictures.
-The instructions here are for MinIO and _should not_ be run on the pi itself.
-Run these commands on your hopefully more secure computer.
-My MinIO server configuration is documented in my https://github.com/jwillikers/home-lab-helm[Home Lab Helm] project.
-
-.. Create a configuration to access the MinIO server.
-+
-[,sh]
-----
-podman run \
-  --interactive \
-  --name minio-client \
-  --rm \
-  --tty \
-  --user $(id -u):$(id -g) \
-  --userns keep-id \
-  --volume minio-client-config:/.mc:Z \
-  quay.io/minio/mc:latest \
-  alias set jwillikers https://minio.jwillikers.io
-mc: Configuration written to `/.mc/config.json`. Please update your access credentials.
-mc: Successfully created `/.mc/share`.
-mc: Initialized share uploads `/.mc/share/uploads.json` file.
-mc: Initialized share downloads `/.mc/share/downloads.json` file.
-Enter Access Key: abcde123
-Enter Secret Key:
-Added `jwillikers` successfully.
-----
-
-.. Create a `pi-camera` bucket in MinIO to store the pictures.
-+
-[,sh]
-----
-podman run \
-  --interactive \
-  --name minio-client \
-  --rm \
-  --tty \
-  --user $(id -u):$(id -g) \
-  --userns keep-id \
-  --volume minio-client-config:/.mc:Z \
-  quay.io/minio/mc:latest \
-  mb jwillikers/pi-camera
-----
-
-.. Place a quota on the `pi-camera` bucket to prevent uploading too much data, which could be accidental or malicious.
-+
-[,sh]
-----
-podman run \
-  --interactive \
-  --name minio-client \
-  --rm \
-  --tty \
-  --user $(id -u):$(id -g) \
-  --userns keep-id \
-  --volume minio-client-config:/.mc:Z \
-  quay.io/minio/mc:latest \
-  mc quota set jwillikers/pi-camera --size 200gi
-----
-
-.. Generate an access token for the Minio server which uses the `pi-camera-minio-policy.json` policy.
-This policy allows only the minimal access necessary for Rclone to upload files to the bucket.
-+
-[,sh]
-----
-podman run \
-  --interactive \
-  --name minio-client \
-  --rm \
-  --tty \
-  --user $(id -u):$(id -g) \
-  --userns keep-id \
-  --volume minio-client-config:/.mc:Z \
-  --volume ./pi-camera-minio-policy.json:/pi-camera-minio-policy.json:Z \
-  quay.io/minio/mc:latest \
-  admin user svcacct add --description "Pi Camera" --name "Pi Camera" --policy "pi-camera-minio-policy.json" jwillikers core
-Access Key: XXXXXXXXXXXXXXXXXXXX
-Secret Key: ****************************************
-Expiration: no-expiry
 ----
 
 . Create the Rclone configuration directory `/etc/rclone`.
@@ -337,6 +429,42 @@ ln --relative --symbolic systemd/user/pi-camera.service ~/.config/systemd/user/p
 systemctl --user enable --now pi-camera.service
 ----
 
+=== Configure Screen Orientation
+
+One of the things that may need tweaked is the screen orientation.
+This is technically configured in two places, the `/boot/firmware/config.txt` file, where it can be changed using the `rotate` `dtparam`, and additionally in Wayfire.
+The configuration for Wayfire is documented in the https://www.raspberrypi.com/documentation/computers/configuration.html#setting-the-desktop-environment-resolution-and-rotation[Setting the desktop environment resolution and rotation section] of the Raspberry Pi Configuration documentation.
+It is also described in the https://github.com/WayfireWM/wayfire-wiki/blob/master/Configuration.md[Configuration.md] file in the Wayfire repository.
+The instructions here describe the basics necessary to rotate the screen.
+
+. Determine the available display outputs with the `kmsprint` command.
+Here, `DPI-1` corresponds to the HyperPixel 4.0.
++
+[,sh]
+----
+kmsprint | grep Connector
+Connector 0 (32) HDMI-A-1 (disconnected)
+Connector 1 (42) HDMI-A-2 (disconnected)
+Connector 2 (48) DPI-1 (connected)
+----
+
+. Use `wlr-randr` to rotate the display.
+When running the command from an SSH connection, include the `WAYLAND_DISPLAY=wayland-1` variable as done here.
++
+[,sh]
+----
+WAYLAND_DISPLAY=wayland-1 wlr-randr --output DPI-1 --transform 90
+----
+
+. To make the change permanent, configure the rotation in the Wayfire configuration file.
++
+.~/.config/wayfire.ini
+[,ini]
+----
+[output:DPI-1]
+transform = 90
+----
+
 == Development
 
 It's recommended to use the provided {pre-commit} checks when developing.
@@ -402,34 +530,18 @@ pip-compile \
   requirements-dev.in
 ----
 
-== Configure Screen Orientation
+== todo
 
-https://github.com/raspberrypi/documentation/blob/develop/documentation/asciidoc/computers/configuration/display-rotation.adoc
-
-https://github.com/WayfireWM/wayfire-wiki/blob/master/Configuration.md
-
-[,sh]
-----
-kmsprint | grep Connector
-Connector 0 (32) HDMI-A-1 (disconnected)
-Connector 1 (42) HDMI-A-2 (disconnected)
-Connector 2 (48) DPI-1 (connected)
-----
-
-[,sh]
-----
-WAYLAND_DISPLAY=wayland-1 wlr-randr --output DPI-1 --transform 90
-----
-
-.~/.config/wayfire.ini
-[,ini]
-----
-[output:DPI-1]
-transform = 90
-----
+* Add support for uploading to {Immich}.
+* Add a Tailscale online target to systemd to only attempt uploading photos when a connection to the required Tailscale endpoint is available.
+* Make the camera application more robust.
+It crashes really easily.
+* Incorporate some sort of power button to safely shutdown.
+* Add a NixOS configuration and build SD card images.
 
 == See Also
 
+* Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera]
 * https://github.com/Gordon999/RPiCamGUI[RPiCamGUI]
 
 == Code of Conduct
