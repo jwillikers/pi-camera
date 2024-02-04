@@ -1,0 +1,15 @@
+[Unit]
+Description=Upload pictures
+Requires=network-online.target
+# Optional tailscale-online@rockpro64.target
+After=network-online.target
+StartLimitIntervalSec=3min
+
+[Service]
+# Rclone
+# ExecStart=/usr/bin/rclone --config=/etc/rclone/rclone.conf move /home/pi-camera/Pictures/ minio:pi-camera
+# Immich
+ExecStart=/root/.asdf/shims/immich upload --delete --recursive /home/pi-camera/Pictures/
+
+[Install]
+WantedBy=multi-user.target

@@ -10,8 +10,13 @@ ifdef::env-github[]
 :caution-caption: :fire:
 :warning-caption: :warning:
 endif::[]
+:asdf: https://asdf-vm.com[asdf]
+:asdf-nodejs: https://github.com/asdf-vm/asdf-nodejs[asdf-nodejs]
+:asdf-version-tag: v0.14.0
 :Immich: https://immich.app/[Immich]
+:Immich-CLI: https://immich.app/docs/features/command-line-interface/[Immich CLI]
 :MinIO: https://min.io/[MinIO]
+:nodejs-version: 20.11.0
 :picamera2: https://github.com/raspberrypi/picamera2[picamera2]
 :pip-tools: https://github.com/jazzband/pip-tools[pip-tools]
 :podman: https://podman.io/[podman]
@@ -39,9 +44,8 @@ endif::[]
 
 The Pi Camera is a minimal digital camera build which automatically uploads your photographs.
 When a picture is taken and saved to the `~/Pictures` directory, its presence is automatically detected by {systemd}.
-When an internet connection is next available, systemd uploads the photos to S3-compatible object storage with {Rclone}.
+When an internet connection is next available, systemd uploads the photos to either S3-compatible object storage with {Rclone} or to {Immich} with the {Immich-CLI}.
 The photos are then removed from local storage.
-I plan on adding support for {Immich} as well.
 This repository documents how I've made the camera, the configuration files I've used, and the procedure to create the camera.
 
 == Components
@@ -146,10 +150,17 @@ Issues https://github.com/raspberrypi/picamera2/issues/492[#492], https://github
 == Storage
 
 The photos are uploaded somewhere, which requires some configuration.
-I'm using a self-hosted MinIO instance with a dedicated `pi-camera` bucket for the pictures.
+The photos can be uploaded to {Immich} or to S3-compatible object storage.
+The latter will document how to do this specifically for MinIO.
+Both my MinIO and Immich setups are documented in my https://github.com/jwillikers/home-lab-helm[Home Lab Helm] repository.
+Using MinIO is more secure as an API token can be scoped with access that is limited to uploading photos.
+For Immich, it is possible to use the local API token on the Pi Camera to delete uploaded photos or do even worse if the API token belongs to an admin user.
+
+=== MinIO
+
+The instructions here are for setting up S3-compatible object storage using a a self-hosted MinIO instance with a dedicated `pi-camera` bucket for the pictures.
 These instructions describe how to create the `pi-camera` bucket and generate an access key with the required write-access necessary to upload the photos with Rclone.
 The instructions assume that {Podman} is installed.
-My MinIO server configuration is documented in my https://github.com/jwillikers/home-lab-helm[Home Lab Helm] repository.
 
 [NOTE]
 ====
@@ -231,6 +242,135 @@ podman run \
 Access Key: XXXXXXXXXXXXXXXXXXXX
 Secret Key: ****************************************
 Expiration: no-expiry
+----
+
+=== Immich
+
+Uploads to Immich are pretty straightforward using the {Immich-CLI} utility.
+Photos will be uploaded to a user account.
+For security, create a dedicated user account to prevent any potential misuse of the API key.
+Unfortunately, since it isn't possible to limit the scope of an API key, the key can still be abused to delete photos for this user's account.
+With that in mind, there are important limitations with partner sharing at the moment which, is probably how you'll want to access the pictures from a dedicated account.
+Right now, facial recognition and favorites won't work across partner sharing, although these are requested features.
+It's also not possible to import shared photos to your account either.
+The following instructions walkthrough how to create this account using the Immich API.
+The WebUI can be used to accomplish the same tasks.
+My Immich server resides at `https://immich.jwillikers.io`.
+Replace it with the URL of your Immich instance.
+
+. Login as an admin user and obtain an access token.
+Substitute your user's username and password.
++
+[TIP]
+====
+Precede the following commands that use the sensitive data such as your password and access token with a space to omit them from your shell's history.
+====
++
+--
+[,sh]
+----
+ curl --location 'https://immich.jwillikers.io/api/auth/login' \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: application/json' \
+  --data-raw '{
+    "email": "jordan@jwillikers.com",
+    "password": "password"
+  }'
+----
+
+The successful response from this command includes the access token as the value for the `accessToken` key.
+--
+
+
+. Create a dedicated user account for the Pi Camera with a quota.
+The following command creates the `Pi Camera` user with a quota of 5 GiB.
+Substitute the API key generated in the previous step for `<access_token>` and use a good password for the Pi Camera user, not _password_.
++
+--
+[,sh]
+----
+ curl --location 'https://immich.jwillikers.io/api/user' \
+  --header 'Authorization: Bearer <access_token>' \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: application/json' \
+  --data '{
+    "email": "pi-camera@jwillikers.com",
+    "name": "Pi Camera",
+    "password": "password",
+    "quotaSizeInBytes": 5368709120
+  }'
+----
+
+The response will return the user's `id` which will be used in the following command.
+--
+
+. Disable the need to change the user's password.
+Use the Pi Camera user's id for `id` in this command.
++
+[,sh]
+----
+ curl --location --request PUT 'https://immich.jwillikers.io/api/user' \
+  --header 'Authorization: Bearer <access_token>' \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: application/json' \
+  --data '{
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "shouldChangePassword": false
+  }'
+----
+
+. Log out from the admin user's account.
++
+[,sh]
+----
+ curl --location --request POST 'https://immich.jwillikers.io/api/auth/logout' \
+  --header 'Authorization: Bearer <access_token>' \
+  --header 'Accept: application/json'
+----
+
+. Now log in as the Pi Camera user.
++
+--
+[,sh]
+----
+ curl --location 'https://immich.jwillikers.io/api/auth/login' \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: application/json' \
+  --data-raw '{
+    "email": "pi-camera@jwillikers.com",
+    "password": "password"
+  }'
+----
+
+The successful response from this command includes the access token as the value for the `accessToken` key.
+--
+
+. Generate an API key for the Pi Camera user.
+Getting an API key is documented in the https://immich.app/docs/features/command-line-interface/#obtain-the-api-key[Obtain the API Key] section of the Immich CLI page.
++
+--
+[,sh]
+----
+curl --location 'https://immich.jwillikers.io/api/api-key' \
+  --header 'Authorization: Bearer <access_token>' \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: application/json' \
+  --data '{
+    "name": "Pi Camera Upload"
+  }'
+----
+
+The value for the `secret` key in the response is the API token that will be used later on the Pi Camera.
+Don't lose it or you'll have to generate another one.
+--
+
+. Log out from the Pi Camera user's account.
++
+[,sh]
+----
+ curl --location --request POST 'https://immich.jwillikers.io/api/auth/logout' \
+  --header 'Authorization: Bearer <access_token>' \
+  --header 'Accept: application/json'
 ----
 
 == Install
@@ -364,14 +504,131 @@ python -m pip install --requirement requirements.txt
 exit
 ----
 
-. Create the Rclone configuration directory `/etc/rclone`.
+. Set up {Immich-CLI} or Rclone for uploading the photos.
++
+Immich CLI::
++
+[NOTE]
+====
+The version of NodeJS shipped in Debian Bookworm is too old for {Immich-CLI}.
+{asdf} makes it possible to easily install a newer version of NodeJS.
+====
++
+.. Switch to a shell for the root user.
+Immich CLI is installed and configured for the root user to limit access to the API key used to upload the photos.
+There's a tradeoff here between exposing the system to NPM vulnerabilities and hiding the API key so that the automatically logged in user can't just see it.
+Given, anyone who mounts the SD card can trivially access this file.
+One other important factor for why this is done is that the `network-online.target` is only available for the systemd system instance.
++
+[,sh]
+----
+sudo su
+----
+
+.. Clone the repository for {asdf}.
++
+[,sh,subs="attributes+"]
+----
+git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch {asdf-version-tag}
+----
+
+.. Install asdf in your shell.
+https://asdf-vm.com/guide/getting-started.html#_3-install-asdf[installation documentation] contains a nice list for a lot of different shells.
+I'll cover Bash because I have to here, but I'll also include the instructions for my favorite shells.
++
+Bash::: Load the `asdf.sh` script in `~/.profile`.
++
+.~/.profile
+[,sh]
+----
+. "$HOME/.asdf/asdf.sh"
+----
+
+fish::: Load the `asdf.fish` script in the fish shell's configuration.
++
+.~/.config/fish/conf.d/asdf.fish
+[,sh]
+----
+source ~/.asdf/asdf.fish
+----
+
+Nushell::: Load the `asdf.nu` script in `~/.config/nushell/config.nu` by running the following command.
++
+[,nushell]
+----
+"\n$env.ASDF_DIR = ($env.HOME | path join '.asdf')\n source " + ($env.HOME | path join '.asdf/asdf.nu') | save --append $nu.config-path
+----
+
+.. Now, load the updated configuration for your shell.
+For fish and Nushell, just open a new shell to accomplish this.
+The Bash configuration uses `~/.profile`, which is only loaded when logging in, so log out and back in to load that or run `source ~/.profile` to load it in the current shell.
+
+.. Install the necessary packages for the NodeJS plugin for asdf, {asdf-nodejs}.
++
+[,sh]
+----
+sudo apt-get --yes install dirmngr gpg curl gawk
+----
+
+.. Add the NodeJS plugin to asdf.
++
+[,sh]
+----
+asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
+----
+
+.. Install NodeJS.
+Immich CLI currently requires at least version 20 of NodeJS.
+At the time of writing, this is the latest LTS, so I'm grabbing the latest minor version of NodeJS available.
++
+[,sh,subs="attributes+"]
+----
+asdf install nodejs {nodejs-version}
+----
+
+.. Set this version of NodeJS current version globally.
+To be clear, that's globally for your user.
++
+[,sh,subs="attributes+"]
+----
+asdf global nodejs {nodejs-version}
+----
+
+.. Now install the {Immich-CLI}.
++
+[,sh]
+----
+npm i -g @immich/cli
+----
+
+.. Set up the API key for authenticating with the Immich instance.
+The last argument should be the API key generated for the Pi Camera user in the <<Immich>> section.
++
+[,sh]
+----
+immich login-key https://immich.jwillikers.io/api the-api-key
+Executing API key auth flow...
+Logged in as pi-camera@jwillikers.com
+Wrote auth info to /root/.config/immich/auth.yml
+----
+
+.. Now exit the root shell.
++
+[,sh]
+----
+exit
+----
+
+Rclone::
++
+.. Create the Rclone configuration directory `/etc/rclone`.
 +
 [,sh]
 ----
 sudo mkdir --parents /etc/rclone/
 ----
 
-. Configure the Rclone credentials in `/etc/rclone/rclone.conf`.
+.. Configure the Rclone credentials in `/etc/rclone/rclone.conf`.
 +
 ./etc/rclone/rclone.conf
 [,ini]
@@ -386,26 +643,35 @@ endpoint = https://minio.jwillikers.io
 acl = private
 ----
 
-. Ensure that only the owner can read and write the `rclone.conf` file.
+.. Ensure that only the owner can read and write the `rclone.conf` file.
 +
 [,sh]
 ----
 sudo chmod 0600 /etc/rclone/rclone.conf
 ----
 
-. Copy the systemd units in the `systemd/system` directory to the `/etc/systemd/system/` directory.
+.. Copy the systemd units in the `systemd/system` directory to the `/etc/systemd/system/` directory.
 +
 [,sh]
 ----
 sudo cp systemd/system/* /etc/systemd/system/
 ----
 
-. Enable and start the systemd service `rclone-upload-pictures.path` unit.
+. Modify the `upload-pictures.service` file as needed for the upload method.
+Make sure that the line for the chosen method is uncommented and either comment or remove the line for the alternative method.
++
+./etc/systemd/system/upload-pictures.service
+[,systemd]
+----
+include::systemd/system/upload-pictures.service[]
+----
+
+. Enable and start the systemd service `upload-pictures.path` unit.
 This unit will automatically run the similarly named service whenever new pictures are added to this directory.
 +
 [,sh]
 ----
-sudo systemctl enable --now rclone-upload-pictures.path
+sudo systemctl enable --now upload-pictures.path
 ----
 
 . Create the systemd directory for user units.
