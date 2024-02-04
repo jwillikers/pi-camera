@@ -345,6 +345,26 @@ Use the Pi Camera user's id for `id` in this command.
 The successful response from this command includes the access token as the value for the `accessToken` key.
 --
 
+. Find the id for any users you want to add as partners to the Pi Camera account.
+Obtain all of the users with this command.
++
+[,sh]
+----
+ curl --location 'https://immich.jwillikers.io/api/user' \
+  --header 'Authorization: Bearer <access_token>' \
+  --header 'Accept: application/json'
+----
+
+. For each desired user, run the following command to add them as a partner.
+Use the user's id as the last path in the URL, replacing `:id`.
++
+[,sh]
+----
+ curl --location --request POST 'https://immich.jwillikers.io/api/partner/:id' \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Bearer <access_token>'
+----
+
 . Generate an API key for the Pi Camera user.
 Getting an API key is documented in the https://immich.app/docs/features/command-line-interface/#obtain-the-api-key[Obtain the API Key] section of the Immich CLI page.
 +
@@ -798,7 +818,7 @@ pip-compile \
 
 == todo
 
-* Add support for uploading to {Immich}.
+* Add EXIF metadata to the image files like GPS coordinates.
 * Add a Tailscale online target to systemd to only attempt uploading photos when a connection to the required Tailscale endpoint is available.
 * Make the camera application more robust.
 It crashes really easily.
