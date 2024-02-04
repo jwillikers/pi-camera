@@ -819,7 +819,9 @@ pip-compile \
 == todo
 
 * Add EXIF metadata to the image files like GPS coordinates.
+Of course, then I need to add a GPS.
 * Add a Tailscale online target to systemd to only attempt uploading photos when a connection to the required Tailscale endpoint is available.
+This would also make it possible to migrate the systemd units to user units.
 * Make the camera application more robust.
 It crashes really easily.
 * Incorporate some sort of power button to safely shutdown.
