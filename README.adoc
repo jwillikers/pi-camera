@@ -408,6 +408,10 @@ This project has been tested with Raspberry Pi OS 5 based on Debian Bookworm.
 mkdir --parents ~/Projects
 ----
 
+. For security, be sure to disable password-based SSH authentication.
+After your public key has been added to the `~/.ssh/authorized_keys` file on the Pi Camera, this can be configured in the `/etc/ssh/sshd_config` file.
+You can follow the instructions in my https://github.com/jwillikers/openssh-config[OpenSSH Config] repository to accomplish this and a few other optimizations.
+
 . Clone this project's repository, again, to the `~/Projects` directory.
 +
 [,sh]
@@ -803,7 +807,6 @@ pip-compile \
 
 == todo
 
-* I should probably document disabling password-based SSH authentication.
 * Add EXIF metadata to the image files like GPS coordinates.
 Of course, then I need to add a GPS.
 * Make the camera application more robust.
