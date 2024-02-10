@@ -13,6 +13,7 @@ endif::[]
 :asdf: https://asdf-vm.com[asdf]
 :asdf-nodejs: https://github.com/asdf-vm/asdf-nodejs[asdf-nodejs]
 :asdf-version-tag: v0.14.0
+:Getting-Started-with-HyperPixel-4-0: https://learn.pimoroni.com/article/getting-started-with-hyperpixel-4[Getting Started with HyperPixel 4.0]
 :Immich: https://immich.app/[Immich]
 :Immich-CLI: https://immich.app/docs/features/command-line-interface/[Immich CLI]
 :MinIO: https://min.io/[MinIO]
@@ -23,7 +24,7 @@ endif::[]
 :Raspberry-Pi-Camera: https://github.com/geerlingguy/pi-camera[Jeff Geerling's Raspberry Pi Camera]
 :Rclone: https://rclone.org/[Rclone]
 :systemd: https://systemd.io/[systemd]
-:Getting-Started-with-HyperPixel-4-0: https://learn.pimoroni.com/article/getting-started-with-hyperpixel-4[Getting Started with HyperPixel 4.0]
+:Tailscale-Online-Target: https://github.com/jwillikers/tailscale-online-target[Tailscale Online Target]
 
 A minimal Raspberry Pi camera that automatically syncs your photos.
 It is based on {Raspberry-Pi-Camera} project.
@@ -482,6 +483,15 @@ Modify or omit the `--exit-node` flag as necessary.
 sudo tailscale up --exit-node=fd7a:115c:a1e0:ab12:4843:cd96:625f:e80c
 ----
 
+. Follow the instructions to setup the {Tailscale-Online-Target} for the node where pictures will be uploaded.
+After installing the necessary files, the following command enables the Tailscale Online Target for the `meerkat` node where my photos will be uploaded.
+The Tailscale Online Target for this specific instance is added as a dependency for the systemd service that uploads the photos.
++
+[,sh]
+----
+systemctl --user enable --now tailscale-dispatcher@meerkat.timer
+----
+
 . Change to the project's root directory.
 +
 [,sh]
@@ -534,17 +544,6 @@ The version of NodeJS shipped in Debian Bookworm is too old for {Immich-CLI}.
 {asdf} makes it possible to easily install a newer version of NodeJS.
 ====
 +
-.. Switch to a shell for the root user.
-Immich CLI is installed and configured for the root user to limit access to the API key used to upload the photos.
-There's a tradeoff here between exposing the system to NPM vulnerabilities and hiding the API key so that the automatically logged in user can't just see it.
-Given, anyone who mounts the SD card can trivially access this file.
-One other important factor for why this is done is that the `network-online.target` is only available for the systemd system instance.
-+
-[,sh]
-----
-sudo su
-----
-
 .. Clone the repository for {asdf}.
 +
 [,sh,subs="attributes+"]
@@ -629,28 +628,21 @@ The last argument should be the API key generated for the Pi Camera user in the 
 immich login-key https://immich.jwillikers.io/api the-api-key
 Executing API key auth flow...
 Logged in as pi-camera@jwillikers.com
-Wrote auth info to /root/.config/immich/auth.yml
-----
-
-.. Now exit the root shell.
-+
-[,sh]
-----
-exit
+Wrote auth info to /home/pi-camera/.config/immich/auth.yml
 ----
 
 Rclone::
 +
-.. Create the Rclone configuration directory `/etc/rclone`.
+.. Create the Rclone configuration directory `~/.config/rclone`.
 +
 [,sh]
 ----
-sudo mkdir --parents /etc/rclone/
+sudo mkdir --parents ~/.config/rclone/
 ----
 
-.. Configure the Rclone credentials in `/etc/rclone/rclone.conf`.
+.. Configure the Rclone credentials in `~/.config/rclone/rclone.conf`.
 +
-./etc/rclone/rclone.conf
+.~/.config/rclone/rclone.conf
 [,ini]
 ----
 [minio]
@@ -667,31 +659,7 @@ acl = private
 +
 [,sh]
 ----
-sudo chmod 0600 /etc/rclone/rclone.conf
-----
-
-.. Copy the systemd units in the `systemd/system` directory to the `/etc/systemd/system/` directory.
-+
-[,sh]
-----
-sudo cp systemd/system/* /etc/systemd/system/
-----
-
-. Modify the `upload-pictures.service` file as needed for the upload method.
-Make sure that the line for the chosen method is uncommented and either comment or remove the line for the alternative method.
-+
-./etc/systemd/system/upload-pictures.service
-[,systemd]
-----
-include::systemd/system/upload-pictures.service[]
-----
-
-. Enable and start the systemd service `upload-pictures.path` unit.
-This unit will automatically run the similarly named service whenever new pictures are added to this directory.
-+
-[,sh]
-----
-sudo systemctl enable --now upload-pictures.path
+chmod 0600 ~/.config/rclone/rclone.conf
 ----
 
 . Create the systemd directory for user units.
@@ -701,14 +669,31 @@ sudo systemctl enable --now upload-pictures.path
 mkdir --parents ~/.config/systemd/user
 ----
 
-. Symlink the `pi-camera.service` unit to `~/.config/systemd/user/pi-camera.service`.
+. Modify the `upload-pictures.service` file as needed for the upload method.
+Make sure that the line for the chosen method is uncommented and either comment or remove the line for the alternative method.
++
+.~/.config/systemd/user/upload-pictures.service
+[,systemd]
+----
+include::systemd/user/upload-pictures.service[]
+----
+
+. Enable and start the systemd service .
 +
 [,sh]
 ----
-ln --relative --symbolic systemd/user/pi-camera.service ~/.config/systemd/user/pi-camera.service
+systemctl --user enable --now upload-pictures.path
 ----
 
-. Enable and start the camera.
+. Symlink the systemd units to the `~/.config/systemd/user/` directory.
++
+[,sh]
+----
+ln --relative --symbolic systemd/user/* ~/.config/systemd/user/
+----
+
+. Enable and start the `pi-camera.service`` and `upload-pictures.path` systemd units.
+The latter unit will automatically run the similarly named service whenever new pictures are added to the `~/Pictures` directory.
 +
 [,sh]
 ----
@@ -818,10 +803,9 @@ pip-compile \
 
 == todo
 
+* I should probably document disabling password-based SSH authentication.
 * Add EXIF metadata to the image files like GPS coordinates.
 Of course, then I need to add a GPS.
-* Add a Tailscale online target to systemd to only attempt uploading photos when a connection to the required Tailscale endpoint is available.
-This would also make it possible to migrate the systemd units to user units.
 * Make the camera application more robust.
 It crashes really easily.
 * Incorporate some sort of power button to safely shutdown.

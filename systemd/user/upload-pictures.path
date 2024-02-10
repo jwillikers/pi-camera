@@ -3,10 +3,10 @@ Description=Watch the Pictures directory for changes
 StartLimitIntervalSec=3min
 
 [Path]
-PathChanged=/home/pi-camera/Pictures
-PathExistsGlob=/home/pi-camera/Pictures/*.jpg
+PathChanged==%h/Pictures
+PathExistsGlob=%h/Pictures/*.jpg
 MakeDirectory=true
 #TriggerLimitIntervalSec=3min
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

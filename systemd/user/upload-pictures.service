@@ -1,0 +1,14 @@
+[Unit]
+Description=Upload pictures
+Requires=tailscale-online@meerkat.target
+After=tailscale-online@meerkat.target
+StartLimitIntervalSec=3min
+
+[Service]
+# Rclone
+# ExecStart=/usr/bin/rclone --config=/etc/rclone/rclone.conf move %h/Pictures/ minio:pi-camera
+# Immich
+ExecStart=%h/.asdf/shims/immich upload --delete --recursive %h/Pictures/
+
+[Install]
+WantedBy=default.target
