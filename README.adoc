@@ -682,18 +682,11 @@ Make sure that the line for the chosen method is uncommented and either comment 
 include::systemd/user/upload-pictures.service[]
 ----
 
-. Enable and start the systemd service .
-+
-[,sh]
-----
-systemctl --user enable --now upload-pictures.path
-----
-
 . Symlink the systemd units to the `~/.config/systemd/user/` directory.
 +
 [,sh]
 ----
-ln --relative --symbolic systemd/user/* ~/.config/systemd/user/
+ln --force --relative --symbolic systemd/user/* ~/.config/systemd/user/
 ----
 
 . Enable and start the `pi-camera.service`` and `upload-pictures.path` systemd units.
@@ -701,7 +694,7 @@ The latter unit will automatically run the similarly named service whenever new 
 +
 [,sh]
 ----
-systemctl --user enable --now pi-camera.service
+systemctl --user enable --now pi-camera.service upload-pictures.path
 ----
 
 === Configure Screen Orientation
