@@ -2,7 +2,7 @@
 import time
 
 import board
-from libcamera import controls, Transform
+from libcamera import controls
 import adafruit_pcf8574
 from picamera2 import Picamera2, Preview
 import adafruit_bitbangio
@@ -22,7 +22,6 @@ with Picamera2() as picam2:
     # Only rotating 180 degrees is supported...
     # preview_config["transform"] = Transform(hflip=True, vflip=True)
     capture_config = picam2.create_still_configuration()
-    capture_config["transform"] = Transform(rotation=270)
     picam2.configure(preview_config)
     picam2.start_preview(Preview.QTGL, x=0, y=0, width=800, height=480)
     picam2.start()
