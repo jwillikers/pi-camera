@@ -262,6 +262,27 @@ python -m pip install --requirement requirements.txt
 exit
 ----
 
+. Create the systemd directory for user units.
++
+[,sh]
+----
+mkdir --parents ~/.config/systemd/user
+----
+
+. Symlink the systemd unit to the `~/.config/systemd/user/` directory.
++
+[,sh]
+----
+ln --force --relative --symbolic systemd/user/* ~/.config/systemd/user/
+----
+
+. Enable and start the `pi-camera.service` systemd unit.
++
+[,sh]
+----
+systemctl --user enable --now pi-camera.service
+----
+
 === Configure Screen Orientation
 
 One of the things that may need tweaked is the screen orientation.
