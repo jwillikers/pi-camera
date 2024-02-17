@@ -3,6 +3,7 @@
         "adafruit",
         "adoc",
         "Arducam",
+        "autoupload",
         "bitbangio",
         "bootfs",
         "circuitpython",

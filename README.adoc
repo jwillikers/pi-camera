@@ -10,9 +10,7 @@ ifdef::env-github[]
 :caution-caption: :fire:
 :warning-caption: :warning:
 endif::[]
-:asdf: https://asdf-vm.com[asdf]
-:asdf-nodejs: https://github.com/asdf-vm/asdf-nodejs[asdf-nodejs]
-:asdf-version-tag: v0.14.0
+:AutoUpload: https://github.com/jwillikers/autoupload[AutoUpload]
 :Getting-Started-with-HyperPixel-4-0: https://learn.pimoroni.com/article/getting-started-with-hyperpixel-4[Getting Started with HyperPixel 4.0]
 :Immich: https://immich.app/[Immich]
 :Immich-CLI: https://immich.app/docs/features/command-line-interface/[Immich CLI]
@@ -47,6 +45,7 @@ The Pi Camera is a minimal digital camera build which automatically uploads your
 When a picture is taken and saved to the `~/Pictures` directory, its presence is automatically detected by {systemd}.
 When an internet connection is next available, systemd uploads the photos to either S3-compatible object storage with {Rclone} or to {Immich} with the {Immich-CLI}.
 The photos are then removed from local storage.
+This is all accomplished with help of my {AutoUpload} project.
 This repository documents how I've made the camera, the configuration files I've used, and the procedure to create the camera.
 
 == Components
@@ -148,252 +147,6 @@ This is important because the picamera2 library only allows flipping the image 1
 Other software techniques are necessary to flip the camera image 90° or 270°.
 Issues https://github.com/raspberrypi/picamera2/issues/492[#492], https://github.com/raspberrypi/picamera2/issues/774[#774], and https://github.com/raspberrypi/picamera2/issues/792[#792] in the https://github.com/raspberrypi/picamera2[picamera2 Project] request this functionality.
 
-== Storage
-
-The photos are uploaded somewhere, which requires some configuration.
-The photos can be uploaded to {Immich} or to S3-compatible object storage.
-The latter will document how to do this specifically for MinIO.
-Both my MinIO and Immich setups are documented in my https://github.com/jwillikers/home-lab-helm[Home Lab Helm] repository.
-Using MinIO is more secure as an API token can be scoped with access that is limited to uploading photos.
-For Immich, it is possible to use the local API token on the Pi Camera to delete uploaded photos or do even worse if the API token belongs to an admin user.
-
-=== MinIO
-
-The instructions here are for setting up S3-compatible object storage using a a self-hosted MinIO instance with a dedicated `pi-camera` bucket for the pictures.
-These instructions describe how to create the `pi-camera` bucket and generate an access key with the required write-access necessary to upload the photos with Rclone.
-The instructions assume that {Podman} is installed.
-
-[NOTE]
-====
-These commands are _not_ meant to be run the Pi itself.
-Run these commands on your hopefully more secure computer.
-====
-
-. Create a configuration to access the MinIO server.
-+
-[,sh]
-----
-podman run \
-  --interactive \
-  --name minio-client \
-  --rm \
-  --tty \
-  --user $(id -u):$(id -g) \
-  --userns keep-id \
-  --volume minio-client-config:/.mc:Z \
-  quay.io/minio/mc:latest \
-  alias set jwillikers https://minio.jwillikers.io
-mc: Configuration written to `/.mc/config.json`. Please update your access credentials.
-mc: Successfully created `/.mc/share`.
-mc: Initialized share uploads `/.mc/share/uploads.json` file.
-mc: Initialized share downloads `/.mc/share/downloads.json` file.
-Enter Access Key: abcde123
-Enter Secret Key:
-Added `jwillikers` successfully.
-----
-
-. Create a `pi-camera` bucket in MinIO to store the pictures.
-+
-[,sh]
-----
-podman run \
-  --interactive \
-  --name minio-client \
-  --rm \
-  --tty \
-  --user $(id -u):$(id -g) \
-  --userns keep-id \
-  --volume minio-client-config:/.mc:Z \
-  quay.io/minio/mc:latest \
-  mb jwillikers/pi-camera
-----
-
-. Place a quota on the `pi-camera` bucket to prevent uploading too much data.
-+
-[,sh]
-----
-podman run \
-  --interactive \
-  --name minio-client \
-  --rm \
-  --tty \
-  --user $(id -u):$(id -g) \
-  --userns keep-id \
-  --volume minio-client-config:/.mc:Z \
-  quay.io/minio/mc:latest \
-  mc quota set jwillikers/pi-camera --size 200gi
-----
-
-. Generate an access token for the Minio server which uses the `pi-camera-minio-policy.json` policy.
-This policy allows only the minimal access necessary for Rclone to upload files to the bucket.
-+
-[,sh]
-----
-podman run \
-  --interactive \
-  --name minio-client \
-  --rm \
-  --tty \
-  --user $(id -u):$(id -g) \
-  --userns keep-id \
-  --volume minio-client-config:/.mc:Z \
-  --volume ./pi-camera-minio-policy.json:/pi-camera-minio-policy.json:Z \
-  quay.io/minio/mc:latest \
-  admin user svcacct add --description "Pi Camera" --name "Pi Camera" --policy "pi-camera-minio-policy.json" jwillikers core
-Access Key: XXXXXXXXXXXXXXXXXXXX
-Secret Key: ****************************************
-Expiration: no-expiry
-----
-
-=== Immich
-
-Uploads to Immich are pretty straightforward using the {Immich-CLI} utility.
-Photos will be uploaded to a user account.
-For security, create a dedicated user account to prevent any potential misuse of the API key.
-Unfortunately, since it isn't possible to limit the scope of an API key, the key can still be abused to delete photos for this user's account.
-With that in mind, there are important limitations with partner sharing at the moment which, is probably how you'll want to access the pictures from a dedicated account.
-Right now, facial recognition and favorites won't work across partner sharing, although these are requested features.
-It's also not possible to import shared photos to your account either.
-The following instructions walkthrough how to create this account using the Immich API.
-The WebUI can be used to accomplish the same tasks.
-My Immich server resides at `https://immich.jwillikers.io`.
-Replace it with the URL of your Immich instance.
-
-. Login as an admin user and obtain an access token.
-Substitute your user's username and password.
-+
-[TIP]
-====
-Precede the following commands that use the sensitive data such as your password and access token with a space to omit them from your shell's history.
-====
-+
---
-[,sh]
-----
- curl --location 'https://immich.jwillikers.io/api/auth/login' \
-  --header 'Content-Type: application/json' \
-  --header 'Accept: application/json' \
-  --data-raw '{
-    "email": "jordan@jwillikers.com",
-    "password": "password"
-  }'
-----
-
-The successful response from this command includes the access token as the value for the `accessToken` key.
---
-
-
-. Create a dedicated user account for the Pi Camera with a quota.
-The following command creates the `Pi Camera` user with a quota of 5 GiB.
-Substitute the API key generated in the previous step for `<access_token>` and use a good password for the Pi Camera user, not _password_.
-+
---
-[,sh]
-----
- curl --location 'https://immich.jwillikers.io/api/user' \
-  --header 'Authorization: Bearer <access_token>' \
-  --header 'Content-Type: application/json' \
-  --header 'Accept: application/json' \
-  --data '{
-    "email": "pi-camera@jwillikers.com",
-    "name": "Pi Camera",
-    "password": "password",
-    "quotaSizeInBytes": 5368709120
-  }'
-----
-
-The response will return the user's `id` which will be used in the following command.
---
-
-. Disable the need to change the user's password.
-Use the Pi Camera user's id for `id` in this command.
-+
-[,sh]
-----
- curl --location --request PUT 'https://immich.jwillikers.io/api/user' \
-  --header 'Authorization: Bearer <access_token>' \
-  --header 'Content-Type: application/json' \
-  --header 'Accept: application/json' \
-  --data '{
-    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "shouldChangePassword": false
-  }'
-----
-
-. Log out from the admin user's account.
-+
-[,sh]
-----
- curl --location --request POST 'https://immich.jwillikers.io/api/auth/logout' \
-  --header 'Authorization: Bearer <access_token>' \
-  --header 'Accept: application/json'
-----
-
-. Now log in as the Pi Camera user.
-+
---
-[,sh]
-----
- curl --location 'https://immich.jwillikers.io/api/auth/login' \
-  --header 'Content-Type: application/json' \
-  --header 'Accept: application/json' \
-  --data-raw '{
-    "email": "pi-camera@jwillikers.com",
-    "password": "password"
-  }'
-----
-
-The successful response from this command includes the access token as the value for the `accessToken` key.
---
-
-. Find the id for any users you want to add as partners to the Pi Camera account.
-Obtain all of the users with this command.
-+
-[,sh]
-----
- curl --location 'https://immich.jwillikers.io/api/user' \
-  --header 'Authorization: Bearer <access_token>' \
-  --header 'Accept: application/json'
-----
-
-. For each desired user, run the following command to add them as a partner.
-Use the user's id as the last path in the URL, replacing `:id`.
-+
-[,sh]
-----
- curl --location --request POST 'https://immich.jwillikers.io/api/partner/:id' \
-  --header 'Accept: application/json' \
-  --header 'Authorization: Bearer <access_token>'
-----
-
-. Generate an API key for the Pi Camera user.
-Getting an API key is documented in the https://immich.app/docs/features/command-line-interface/#obtain-the-api-key[Obtain the API Key] section of the Immich CLI page.
-+
---
-[,sh]
-----
-curl --location 'https://immich.jwillikers.io/api/api-key' \
-  --header 'Authorization: Bearer <access_token>' \
-  --header 'Content-Type: application/json' \
-  --header 'Accept: application/json' \
-  --data '{
-    "name": "Pi Camera Upload"
-  }'
-----
-
-The value for the `secret` key in the response is the API token that will be used later on the Pi Camera.
-Don't lose it or you'll have to generate another one.
---
-
-. Log out from the Pi Camera user's account.
-+
-[,sh]
-----
- curl --location --request POST 'https://immich.jwillikers.io/api/auth/logout' \
-  --header 'Authorization: Bearer <access_token>' \
-  --header 'Accept: application/json'
-----
-
 == Install
 
 . Install 64-bit full version of https://www.raspberrypi.com/software/[Raspberry Pi OS] to a microSD card.
@@ -401,6 +154,24 @@ The configuration files assume the primary user is `pi-camera`, which can be con
 This project has been tested with Raspberry Pi OS 5 based on Debian Bookworm.
 . Insert the microSD card into the Raspberry Pi.
 . Boot the Raspberry Pi.
+. Follow the instructions to configure the storage service and install the autoupload systemd units in the {AutoUpload} README to automatically upload photos in the `~/Pictures` directory.
+The commands to enable the units should look similar to the following.
+These use the _system_ units, though _user_ units work just as well.
++
+Immich::
++
+[,sh]
+----
+sudo systemctl enable --now autoupload-immich@$(systemd-escape --path ~/Pictures).path
+----
+
+Rclone::
++
+[,sh]
+----
+sudo systemctl enable --now autoupload-rclone@$(systemd-escape --path ~/Pictures).path
+----
+
 . Make the `~/Projects` directory.
 +
 [,sh]
@@ -412,7 +183,7 @@ mkdir --parents ~/Projects
 After your public key has been added to the `~/.ssh/authorized_keys` file on the Pi Camera, this can be configured in the `/etc/ssh/sshd_config` file.
 You can follow the instructions in my https://github.com/jwillikers/openssh-config[OpenSSH Config] repository to accomplish this and a few other optimizations.
 
-. Clone this project's repository, again, to the `~/Projects` directory.
+. Clone this project's repository to the `~/Projects` directory.
 +
 [,sh]
 ----
@@ -446,54 +217,7 @@ I like fish, tmux, and vim, what can I say?
 +
 [,sh]
 ----
-sudo apt-get --yes install apt-transport-https firewalld fish git python3-dev python3-picamera2 python3-venv raspberrypi-ui-mods rclone tmux vim wlr-randr
-----
-
-. Install Tailscale.
-.. Add the Tailscale signing key to the system keyring.
-+
-[,sh]
-----
-curl -fsSL https://pkgs.tailscale.com/stable/raspbian/bullseye.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg > /dev/null
-----
-
-.. Add the Tailscale repository to the system.
-+
-[,sh]
-----
-curl -fsSL https://pkgs.tailscale.com/stable/raspbian/bullseye.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
-----
-
-.. Refresh the packages.
-+
-[,sh]
-----
-sudo apt-get update
-----
-
-.. Install the Tailscale package.
-+
-[,sh]
-----
-sudo apt-get --yes install tailscale
-----
-
-.. Start Tailscale and authenticate.
-I use an exit node to route all traffic through Tailscale.
-Modify or omit the `--exit-node` flag as necessary.
-+
-[,sh]
-----
-sudo tailscale up --exit-node=fd7a:115c:a1e0:ab12:4843:cd96:625f:e80c
-----
-
-. Follow the instructions to setup the {Tailscale-Online-Target} for the node where pictures will be uploaded.
-After installing the necessary files, the following command enables the Tailscale Online Target for the `meerkat` node where my photos will be uploaded.
-The Tailscale Online Target for this specific instance is added as a dependency for the systemd service that uploads the photos.
-+
-[,sh]
-----
-systemctl --user enable --now tailscale-dispatcher@meerkat.timer
+sudo apt-get --yes install firewalld fish git python3-dev python3-picamera2 python3-venv raspberrypi-ui-mods tmux vim wlr-randr
 ----
 
 . Change to the project's root directory.
@@ -536,165 +260,6 @@ python -m pip install --requirement requirements.txt
 [,sh]
 ----
 exit
-----
-
-. Set up {Immich-CLI} or Rclone for uploading the photos.
-+
-Immich CLI::
-+
-[NOTE]
-====
-The version of NodeJS shipped in Debian Bookworm is too old for {Immich-CLI}.
-{asdf} makes it possible to easily install a newer version of NodeJS.
-====
-+
-.. Clone the repository for {asdf}.
-+
-[,sh,subs="attributes+"]
-----
-git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch {asdf-version-tag}
-----
-
-.. Install asdf in your shell.
-https://asdf-vm.com/guide/getting-started.html#_3-install-asdf[installation documentation] contains a nice list for a lot of different shells.
-I'll cover Bash because I have to here, but I'll also include the instructions for my favorite shells.
-+
-Bash::: Load the `asdf.sh` script in `~/.profile`.
-+
-.~/.profile
-[,sh]
-----
-. "$HOME/.asdf/asdf.sh"
-----
-
-fish::: Load the `asdf.fish` script in the fish shell's configuration.
-+
-.~/.config/fish/conf.d/asdf.fish
-[,sh]
-----
-source ~/.asdf/asdf.fish
-----
-
-Nushell::: Load the `asdf.nu` script in `~/.config/nushell/config.nu` by running the following command.
-+
-[,nushell]
-----
-"\n$env.ASDF_DIR = ($env.HOME | path join '.asdf')\n source " + ($env.HOME | path join '.asdf/asdf.nu') | save --append $nu.config-path
-----
-
-.. Now, load the updated configuration for your shell.
-For fish and Nushell, just open a new shell to accomplish this.
-The Bash configuration uses `~/.profile`, which is only loaded when logging in, so log out and back in to load that or run `source ~/.profile` to load it in the current shell.
-
-.. Install the necessary packages for the NodeJS plugin for asdf, {asdf-nodejs}.
-+
-[,sh]
-----
-sudo apt-get --yes install dirmngr gpg curl gawk
-----
-
-.. Add the NodeJS plugin to asdf.
-+
-[,sh]
-----
-asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-----
-
-.. Install NodeJS.
-Immich CLI currently requires at least version 20 of NodeJS.
-At the time of writing, this is the latest LTS, so I'm grabbing the latest minor version of NodeJS available.
-+
-[,sh,subs="attributes+"]
-----
-asdf install nodejs {nodejs-version}
-----
-
-.. Set this version of NodeJS current version globally.
-To be clear, that's globally for your user.
-+
-[,sh,subs="attributes+"]
-----
-asdf global nodejs {nodejs-version}
-----
-
-.. Now install the {Immich-CLI}.
-+
-[,sh]
-----
-npm i -g @immich/cli
-----
-
-.. Set up the API key for authenticating with the Immich instance.
-The last argument should be the API key generated for the Pi Camera user in the <<Immich>> section.
-+
-[,sh]
-----
-immich login-key https://immich.jwillikers.io/api the-api-key
-Executing API key auth flow...
-Logged in as pi-camera@jwillikers.com
-Wrote auth info to /home/pi-camera/.config/immich/auth.yml
-----
-
-Rclone::
-+
-.. Create the Rclone configuration directory `~/.config/rclone`.
-+
-[,sh]
-----
-sudo mkdir --parents ~/.config/rclone/
-----
-
-.. Configure the Rclone credentials in `~/.config/rclone/rclone.conf`.
-+
-.~/.config/rclone/rclone.conf
-[,ini]
-----
-[minio]
-type = s3
-provider = Minio
-access_key_id = ********************
-secret_access_key = ****************************************
-region = us-east-1
-endpoint = https://minio.jwillikers.io
-acl = private
-----
-
-.. Ensure that only the owner can read and write the `rclone.conf` file.
-+
-[,sh]
-----
-chmod 0600 ~/.config/rclone/rclone.conf
-----
-
-. Create the systemd directory for user units.
-+
-[,sh]
-----
-mkdir --parents ~/.config/systemd/user
-----
-
-. Modify the `upload-pictures.service` file as needed for the upload method.
-Make sure that the line for the chosen method is uncommented and either comment or remove the line for the alternative method.
-+
-.~/.config/systemd/user/upload-pictures.service
-[,systemd]
-----
-include::systemd/user/upload-pictures.service[]
-----
-
-. Symlink the systemd units to the `~/.config/systemd/user/` directory.
-+
-[,sh]
-----
-ln --force --relative --symbolic systemd/user/* ~/.config/systemd/user/
-----
-
-. Enable and start the `pi-camera.service`` and `upload-pictures.path` systemd units.
-The latter unit will automatically run the similarly named service whenever new pictures are added to the `~/Pictures` directory.
-+
-[,sh]
-----
-systemctl --user enable --now pi-camera.service upload-pictures.path
 ----
 
 === Configure Screen Orientation
