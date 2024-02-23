@@ -55,7 +55,8 @@ The camera uses Pimoroni's HyperPixel 4.0 screen which has good support in the R
 The screen also works under Wayland.
 A momentary push button is used to take pictures.
 The HyperPixel 4.0 screen takes up all of the pins, only exposing an I2C bus.
-The PCF8574 I2C GPIO Expander is used to connect the momentary push button to the Raspberry Pi.
+The PCF8574 I2C GPIO Expander is used to connect the momentary push button and GPS to the Raspberry Pi.
+An I2C GPS is used to incorporate EXIF geolocation metadata in the pictures.
 
 [NOTE]
 ====
@@ -70,7 +71,8 @@ This makes it less suitable for a portable camera than the Raspberry Pi 4.
 * https://www.arducam.com/product/white-camera-enclosure-case-pi-cameras/[Camera Enclosure Case for Raspberry Pi Camera Module 3/V1/V2 and Arducam 16MP/64MP Camera]
 * https://shop.pimoroni.com/products/hyperpixel-4?variant=12569485443155[Pimoroni HyperPixel 4.0 - Hi-Res Display for Raspberry Pi - Touch]
 * https://www.adafruit.com/product/5545[Adafruit PCF8574 I2C GPIO Expander]
-* https://www.adafruit.com/product/4209[STEMMA QT / Qwiic JST SH 4-pin to Premium Male Headers Cable - 150mm Long]
+* https://www.adafruit.com/product/4209[STEMMA QT / Qwiic JST SH 4-pin to Premium Male Headers Cable - 150mm Long x2]
+* https://www.adafruit.com/product/4415[Adafruit Mini GPS PA1010D - UART and I2C - STEMMA QT]
 * https://amzn.to/3ijIj0C[Twidec 12mm momentary push button]
 * A sufficiently large and performant microSD card.
 The https://www.samsung.com/us/computing/memory-storage/memory-cards/pro-ultimate-adapter-microsdxc-128gb-mb-my128sa-am/[128GB Samsung Pro Ultimate] and https://www.samsung.com/us/computing/memory-storage/memory-cards/pro-endurance-adapter-microsdxc-128gb-mb-mj128ka-am/[128GB Samsung Pro Endurance] are two good options.
@@ -386,8 +388,6 @@ pip-compile \
 
 == todo
 
-* Add EXIF metadata to the image files like GPS coordinates.
-Of course, then I need to add a GPS.
 * Make the camera application more robust.
 It crashes really easily.
 * Incorporate some sort of power button to safely shutdown.
