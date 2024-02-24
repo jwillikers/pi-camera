@@ -52,13 +52,10 @@ adafruit-pureio==1.1.11 \
     --hash=sha256:281ab2099372cc0decc26326918996cbf21b8eed694ec4764d51eefa029d324e \
     --hash=sha256:c4cfbb365731942d1f1092a116f47dfdae0aef18c5b27f1072b5824ad5ea8c7c
     # via adafruit-blinka
-exif==1.6.0 \
-    --hash=sha256:2d002b5740eb897da43de1e6a8f4ebacf5171b4d0b8bc0182c70aebde1be86d3 \
-    --hash=sha256:36288d1ffc60030084a04c26f50cc32e19383a36cd234fcfa1fb1c6f698e1d36
+piexif==1.1.3 \
+    --hash=sha256:3bc435d171720150b81b15d27e05e54b8abbde7b4242cddd81ef160d283108b6 \
+    --hash=sha256:83cb35c606bf3a1ea1a8f0a25cb42cf17e24353fd82e87ae3884e74a302a5f1b
     # via -r requirements.in
-plum-py==0.8.7 \
-    --hash=sha256:d791f059ef159adbe3c3b036557b5b431fa07db226a9de106a74e5e57441741d
-    # via exif
 pyftdi==0.55.0 \
     --hash=sha256:6af7b6c73da1256fd5140076fe77a616c13e44dd0779dd561dac1b5981dbd43f \
     --hash=sha256:a747bbbccc4eeea26cefa2c8bd3d2b8bef8c94ecb6969bb9c75a63640887519a

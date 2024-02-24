@@ -12,17 +12,15 @@ ifdef::env-github[]
 endif::[]
 :AutoUpload: https://github.com/jwillikers/autoupload[AutoUpload]
 :Getting-Started-with-HyperPixel-4-0: https://learn.pimoroni.com/article/getting-started-with-hyperpixel-4[Getting Started with HyperPixel 4.0]
+:Exif: https://en.wikipedia.org/wiki/Exif[Exif]
 :Immich: https://immich.app/[Immich]
 :Immich-CLI: https://immich.app/docs/features/command-line-interface/[Immich CLI]
 :MinIO: https://min.io/[MinIO]
-:nodejs-version: 20.11.0
 :picamera2: https://github.com/raspberrypi/picamera2[picamera2]
 :pip-tools: https://github.com/jazzband/pip-tools[pip-tools]
-:podman: https://podman.io/[podman]
 :Raspberry-Pi-Camera: https://github.com/geerlingguy/pi-camera[Jeff Geerling's Raspberry Pi Camera]
 :Rclone: https://rclone.org/[Rclone]
 :systemd: https://systemd.io/[systemd]
-:Tailscale-Online-Target: https://github.com/jwillikers/tailscale-online-target[Tailscale Online Target]
 
 A minimal Raspberry Pi camera that automatically syncs your photos.
 It is based on {Raspberry-Pi-Camera} project.
@@ -56,7 +54,7 @@ The screen also works under Wayland.
 A momentary push button is used to take pictures.
 The HyperPixel 4.0 screen takes up all of the pins, only exposing an I2C bus.
 The PCF8574 I2C GPIO Expander is used to connect the momentary push button and GPS to the Raspberry Pi.
-An I2C GPS is used to incorporate EXIF geolocation metadata in the pictures.
+An I2C GPS is used to incorporate {Exif} geolocation metadata in the pictures.
 
 [NOTE]
 ====
@@ -71,7 +69,8 @@ This makes it less suitable for a portable camera than the Raspberry Pi 4.
 * https://www.arducam.com/product/white-camera-enclosure-case-pi-cameras/[Camera Enclosure Case for Raspberry Pi Camera Module 3/V1/V2 and Arducam 16MP/64MP Camera]
 * https://shop.pimoroni.com/products/hyperpixel-4?variant=12569485443155[Pimoroni HyperPixel 4.0 - Hi-Res Display for Raspberry Pi - Touch]
 * https://www.adafruit.com/product/5545[Adafruit PCF8574 I2C GPIO Expander]
-* https://www.adafruit.com/product/4209[STEMMA QT / Qwiic JST SH 4-pin to Premium Male Headers Cable - 150mm Long x2]
+* https://www.adafruit.com/product/4209[STEMMA QT / Qwiic JST SH 4-pin to Premium Male Headers Cable - 150mm Long]
+* https://www.adafruit.com/product/4399[STEMMA QT / Qwiic JST SH 4-Pin Cable - 50mm Long]
 * https://www.adafruit.com/product/4415[Adafruit Mini GPS PA1010D - UART and I2C - STEMMA QT]
 * https://amzn.to/3ijIj0C[Twidec 12mm momentary push button]
 * A sufficiently large and performant microSD card.
@@ -151,7 +150,7 @@ Issues https://github.com/raspberrypi/picamera2/issues/492[#492], https://github
 
 == Install
 
-. Install 64-bit full version of https://www.raspberrypi.com/software/[Raspberry Pi OS] to a microSD card.
+. Install the 64-bit full version of https://www.raspberrypi.com/software/[Raspberry Pi OS] to a microSD card.
 The configuration files assume the primary user is `pi-camera`, which can be configured when using Raspberry Pi Imager to write the image.
 This project has been tested with Raspberry Pi OS 5 based on Debian Bookworm.
 . Insert the microSD card into the Raspberry Pi.
@@ -174,16 +173,16 @@ Rclone::
 sudo systemctl enable --now autoupload-rclone@$(systemd-escape --path ~/Pictures).path
 ----
 
+. For security, be sure to disable password-based SSH authentication.
+After your public key has been added to the `~/.ssh/authorized_keys` file on the Pi Camera, this can be configured in the `/etc/ssh/sshd_config` file.
+You can follow the instructions in my https://github.com/jwillikers/openssh-config[OpenSSH Config] repository to accomplish this and a few other optimizations.
+
 . Make the `~/Projects` directory.
 +
 [,sh]
 ----
 mkdir --parents ~/Projects
 ----
-
-. For security, be sure to disable password-based SSH authentication.
-After your public key has been added to the `~/.ssh/authorized_keys` file on the Pi Camera, this can be configured in the `/etc/ssh/sshd_config` file.
-You can follow the instructions in my https://github.com/jwillikers/openssh-config[OpenSSH Config] repository to accomplish this and a few other optimizations.
 
 . Clone this project's repository to the `~/Projects` directory.
 +
@@ -196,7 +195,7 @@ git -C ~/Projects clone https://github.com/jwillikers/pi-camera.git
 +
 [,sh]
 ----
-cat boot/firmware/config.txt.append | tee append /boot/firmware/config.txt
+cat ~/Projects/pi-camera/boot/firmware/config.txt.append | tee append /boot/firmware/config.txt
 ----
 
 . Reboot.
@@ -226,7 +225,7 @@ sudo apt-get --yes install firewalld fish git python3-dev python3-picamera2 pyth
 +
 [,sh]
 ----
-cd pi-camera
+cd ~/Projects/pi-camera
 ----
 
 . Create a symlink of the `wayfire.ini` file in the `~/.config` directory.
@@ -240,14 +239,14 @@ ln --relative --symbolic wayfire.ini ~/.config/wayfire.ini
 +
 [,sh]
 ----
-python -m venv --system-site-packages ~/pi-camera-venv
+python -m venv --system-site-packages venv
 ----
 
 . Activate the virtual environment.
 +
 [,sh]
 ----
-source ~/pi-camera-venv/bin/activate.fish
+source venv/bin/activate.fish
 ----
 
 . Install the dependencies in the venv.
@@ -329,14 +328,14 @@ It's recommended to use the provided {pre-commit} checks when developing.
 +
 [,sh]
 ----
-python -m venv .env
+python -m venv --system-site-packages venv
 ----
 
 . Activate the virtual environment.
 +
 [,sh]
 ----
-source .env/bin/activate.fish
+source venv/bin/activate.fish
 ----
 
 . Install the development packages.
@@ -388,6 +387,8 @@ pip-compile \
 
 == todo
 
+* CI
+* mypy
 * Make the camera application more robust.
 It crashes really easily.
 * Incorporate some sort of power button to safely shutdown.
@@ -397,6 +398,7 @@ It crashes really easily.
 
 * Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera]
 * https://github.com/Gordon999/RPiCamGUI[RPiCamGUI]
+* https://docs.circuitpython.org/projects/gps/en/latest/[Adafruit GPS Library Documentation]
 
 == Code of Conduct
 

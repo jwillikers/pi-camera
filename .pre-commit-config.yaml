@@ -11,12 +11,11 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 24.2.0
     hooks:
       - id: black
-        language_version: python3
   - repo: https://github.com/jazzband/pip-tools
-    rev: 7.3.0
+    rev: 7.4.0
     hooks:
       - id: pip-compile
         name: pip-compile setup.py
@@ -34,9 +33,11 @@ repos:
           - requirements-dev.in
         files: ^requirements-dev\.(in|txt)$
   - repo: https://github.com/PyCQA/pylint
-    rev: v3.0.3
+    rev: v3.0.4
     hooks:
       - id: pylint
         additional_dependencies:
         - adafruit-circuitpython-bitbangio
+        - adafruit-circuitpython-gps
         - adafruit-circuitpython-pcf8574
+        - piexif
