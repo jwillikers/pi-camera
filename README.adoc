@@ -396,7 +396,8 @@ pip-compile \
 
 == todo
 
-* CI
+* More CI
+* yamllint
 * mypy
 * Make the camera application more robust.
 It crashes really easily.
