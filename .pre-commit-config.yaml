@@ -41,3 +41,4 @@ repos:
         - adafruit-circuitpython-gps
         - adafruit-circuitpython-pcf8574
         - piexif
+        - pytest

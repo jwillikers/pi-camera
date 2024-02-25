@@ -2,7 +2,7 @@
 Jordan Williams <jordan@jwillikers.com>
 :experimental:
 :icons: font
-:keywords: camera photo pi picamera python raspberry
+:keywords: camera gps photo pi picamera python raspberry
 ifdef::env-github[]
 :tip-caption: :bulb:
 :note-caption: :information_source:
@@ -124,7 +124,9 @@ The associated cable colors are documented in the following table.
 | Power | Red
 |===
 
-. Attach the JST SH plug on STEMMA QT / Qwiic cable to the PCF8574 breakout.
+. Attach the JST SH plug on STEMMA QT / Qwiic cable with male headers to the PCF8574 breakout.
+It can be connected to either end of the board.
+. Attach one of the JST SH plugs on the other STEMMA QT / Qwiic cable to the Adafruit Mini GPS PA1010D breakout.
 It can be connected to either end of the board.
 . Connect the flex cable to the 2-lane MIPI CSI camera port on the Raspberry Pi.
 This port is next to the audio jack on the Raspberry Pi 4 Model B.
@@ -359,6 +361,13 @@ pip-sync requirements-dev.txt requirements.txt
 [,sh]
 ----
 pre-commit install
+----
+
+. Run the tests with https://docs.pytest.org/en/latest/[pytest].
++
+[,sh]
+----
+pytest
 ----
 
 . Upgrade the packages pinned in the `requirements.txt` file with the `pip-compile` command.

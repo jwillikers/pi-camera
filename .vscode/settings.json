@@ -38,6 +38,7 @@
         "prctl",
         "pylint",
         "pyqt",
+        "pytest",
         "Qwiic",
         "randr",
         "raspberrypi",
