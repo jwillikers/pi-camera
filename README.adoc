@@ -15,6 +15,7 @@ endif::[]
 :Exif: https://en.wikipedia.org/wiki/Exif[Exif]
 :Immich: https://immich.app/[Immich]
 :Immich-CLI: https://immich.app/docs/features/command-line-interface/[Immich CLI]
+:just: https://github.com/casey/just[just]
 :MinIO: https://min.io/[MinIO]
 :picamera2: https://github.com/raspberrypi/picamera2[picamera2]
 :pip-tools: https://github.com/jazzband/pip-tools[pip-tools]
@@ -160,6 +161,7 @@ The configuration files assume the primary user is `pi-camera`, which can be con
 This project has been tested with Raspberry Pi OS 5 based on Debian Bookworm.
 . Insert the microSD card into the Raspberry Pi.
 . Boot the Raspberry Pi.
+. Install {just} by following the instructions in the https://github.com/casey/just?tab=readme-ov-file#installation[installation section].
 . Follow the instructions to configure the storage service and install the autoupload systemd units in the {AutoUpload} README to automatically upload photos in the `~/Pictures` directory.
 The commands to enable the units should look similar to the following.
 These use the _system_ units, though _user_ units work just as well.
@@ -196,14 +198,6 @@ mkdir --parents ~/Projects
 git -C ~/Projects clone https://github.com/jwillikers/pi-camera.git
 ----
 
-. Append the contents of the `boot/firmware/config.txt.append` file to the `/boot/firmware/config.txt` file.
-+
-[,sh]
-----
-cat ~/Projects/pi-camera/boot/firmware/config.txt.append | tee append /boot/firmware/config.txt
-----
-
-. Reboot.
 . Update the package lists.
 +
 [,sh]
@@ -218,14 +212,6 @@ sudo apt-get update
 sudo apt-get --yes full-upgrade
 ----
 
-. Install the necessary and unnecessary packages.
-I like fish, tmux, and vim, what can I say?
-+
-[,sh]
-----
-sudo apt-get --yes install firewalld fish git python3-dev python3-picamera2 python3-venv raspberrypi-ui-mods tmux vim wlr-randr
-----
-
 . Change to the project's root directory.
 +
 [,sh]
@@ -233,60 +219,33 @@ sudo apt-get --yes install firewalld fish git python3-dev python3-picamera2 pyth
 cd ~/Projects/pi-camera
 ----
 
-. Create a symlink of the `wayfire.ini` file in the `~/.config` directory.
+. Set up the environment with `just init`.
+This will install dependencies and initialize the virtual environment.
 +
 [,sh]
 ----
-ln --relative --symbolic wayfire.ini ~/.config/wayfire.ini
+just init
 ----
 
-. Create a virtual environment for the project.
+. Reboot for the updated `/boot/firmware/config.txt` file to take effect.
 +
 [,sh]
 ----
-python -m venv --system-site-packages venv
+sudo systemctl reboot
 ----
 
-. Activate the virtual environment.
+. Use `just run` to run the `camera.py` Python script inside the virtual environment.
 +
 [,sh]
 ----
-source venv/bin/activate.fish
+just run
 ----
 
-. Install the dependencies in the venv.
+. Install and activate the systemd service with `just install`.
 +
 [,sh]
 ----
-python -m pip install --requirement requirements.txt
-----
-
-. Exit the virtual environment.
-+
-[,sh]
-----
-exit
-----
-
-. Create the systemd directory for user units.
-+
-[,sh]
-----
-mkdir --parents ~/.config/systemd/user
-----
-
-. Symlink the systemd unit to the `~/.config/systemd/user/` directory.
-+
-[,sh]
-----
-ln --force --relative --symbolic systemd/user/* ~/.config/systemd/user/
-----
-
-. Enable and start the `pi-camera.service` systemd unit.
-+
-[,sh]
-----
-systemctl --user enable --now pi-camera.service
+just install
 ----
 
 === Configure Screen Orientation
@@ -325,76 +284,63 @@ WAYLAND_DISPLAY=wayland-1 wlr-randr --output DPI-1 --transform 90
 transform = 90
 ----
 
+== HDR
+
+The Raspberry Pi Camera Module 3 supports HDR, but only at a lower resolution.
+HDR support has to toggled when `camera.py` isn't running.
+
+. Show the available V4L subdevices.
++
+[,sh]
+----
+ls /dev/v4l-subdev*
+/dev/v4l-subdev0  /dev/v4l-subdev1  /dev/v4l-subdev2  /dev/v4l-subdev3
+----
+
+. To enable HDR support for the Raspberry Pi Camera Module 3, use the following command on one of the V4L subdevices.
+In my case, this ended up being `/dev/v4l-subdev2`.
++
+[,sh]
+----
+just hdr /dev/v4l-subdev2
+----
+
+. To disable HDR support for the Raspberry Pi Camera Module 3, use this command with the corresponding V4L subdevice.
++
+[,sh]
+----
+just hdr /dev/v4l-subdev2 disable
+----
+
 == Development
 
-It's recommended to use the provided {pre-commit} checks when developing.
-
-. Create a virtual environment.
+. Run `just init-dev` to initialize the virtual environment for development.
+This will install all of the necessary dependencies and the {pre-commit} hooks.
 +
 [,sh]
 ----
-python -m venv --system-site-packages venv
+just init-dev
 ----
 
-. Activate the virtual environment.
+. Run the tests with https://docs.pytest.org/en/latest/[pytest] by running `just test`.
 +
 [,sh]
 ----
-source venv/bin/activate.fish
+just test
 ----
 
-. Install the development packages.
+. To update dependencies, run `just update`.
 +
 [,sh]
 ----
-python -m pip install -r requirements-dev.txt
+just update
 ----
 
-. Install the packages.
-This project uses pip-tools to synchronize virtual environments for development.
-Sync your virtual environments packages with those pinned in the `requirements.txt` and `requirements-dev.txt` files with the `pip-sync` command.
+. Use `just --list` to list other available tasks.
 +
 [,sh]
 ----
-pip-sync requirements-dev.txt requirements.txt
-----
-
-. Install the Git hooks for pre-commit.
-+
-[,sh]
-----
-pre-commit install
-----
-
-. Run the tests with https://docs.pytest.org/en/latest/[pytest].
-+
-[,sh]
-----
-pytest
-----
-
-. Upgrade the packages pinned in the `requirements.txt` file with the `pip-compile` command.
-+
-[,sh]
-----
-pip-compile \
-  --allow-unsafe \
-  --generate-hashes \
-  --reuse-hashes \
-  --upgrade \
-  requirements.in
-----
-
-. The pinned development packages in the `requirements-dev.txt` file can be upgraded in the same fashion.
-+
-[,sh]
-----
-pip-compile \
-  --allow-unsafe \
-  --generate-hashes \
-  --reuse-hashes \
-  --upgrade \
-  requirements-dev.in
+just --list
 ----
 
 == todo
