@@ -22,6 +22,9 @@ endif::[]
 :Rclone: https://rclone.org/[Rclone]
 :systemd: https://systemd.io/[systemd]
 
+image:https://github.com/jwillikers/pi-camera/actions/workflows/python-app.yaml/badge.svg[CI, link=https://github.com/jwillikers/pi-camera/actions/workflows/python-app.yaml]
+image:https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json[Ruff, link=https://github.com/astral-sh/ruff]
+
 A minimal Raspberry Pi camera that automatically syncs your photos.
 It is based on {Raspberry-Pi-Camera} project.
 
@@ -396,8 +399,7 @@ pip-compile \
 
 == todo
 
-* More CI
-* yamllint
+* Real logging
 * mypy
 * Make the camera application more robust.
 It crashes really easily.
@@ -409,6 +411,7 @@ It crashes really easily.
 * Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera]
 * https://github.com/Gordon999/RPiCamGUI[RPiCamGUI]
 * https://docs.circuitpython.org/projects/gps/en/latest/[Adafruit GPS Library Documentation]
+* https://github.com/raspberrypi/picamera2/blob/main/apps/app_full.py[picamera2 Full App]
 
 == Code of Conduct
 
