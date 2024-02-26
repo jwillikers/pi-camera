@@ -18,7 +18,7 @@ hdr device="/dev/v4l-subdev2" action="enable":
 init:
     #!/usr/bin/env bash
     set -euxo pipefail
-    cat boot/firmware/config.txt.append | sudo tee append /boot/firmware/config.txt
+    cat boot/firmware/config.txt.append | sudo tee --append /boot/firmware/config.txt
     ln --force --relative --symbolic wayfire.ini "{{ config_directory() }}/wayfire.ini"
     distro=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release)
     if [ "$distro" = "debian" ]; then
