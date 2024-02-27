@@ -50,7 +50,7 @@ def main():
     frame = int(time.time())
     with Picamera2() as picam2:
         picam2.options["quality"] = 95
-        picam2.options["compress_level"] = 9
+        picam2.options["compress_level"] = 0
 
         lores_size = picam2.sensor_resolution
         while lores_size[0] > 800:
