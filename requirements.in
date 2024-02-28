@@ -1,3 +1,5 @@
 adafruit-circuitpython-bitbangio
+adafruit-circuitpython-gps
 adafruit-circuitpython-pcf8574
+piexif
 #picamera2[gui]

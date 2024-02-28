@@ -5,7 +5,7 @@ After=default.target
 [Service]
 Type=simple
 ExecStartPre=/bin/sleep 1
-ExecStart=%h/pi-camera-venv/bin/python %h/Projects/pi-camera/camera.py
+ExecStart=%h/Projects/pi-camera/venv/bin/python %h/Projects/pi-camera/camera.py --output %h/Pictures
 Restart=on-failure
 RestartSec=10
 KillMode=process

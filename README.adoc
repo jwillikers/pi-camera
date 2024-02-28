@@ -2,7 +2,7 @@
 Jordan Williams <jordan@jwillikers.com>
 :experimental:
 :icons: font
-:keywords: camera photo pi picamera python raspberry
+:keywords: camera gps photo pi picamera python raspberry
 ifdef::env-github[]
 :tip-caption: :bulb:
 :note-caption: :information_source:
@@ -12,17 +12,20 @@ ifdef::env-github[]
 endif::[]
 :AutoUpload: https://github.com/jwillikers/autoupload[AutoUpload]
 :Getting-Started-with-HyperPixel-4-0: https://learn.pimoroni.com/article/getting-started-with-hyperpixel-4[Getting Started with HyperPixel 4.0]
+:Exif: https://en.wikipedia.org/wiki/Exif[Exif]
 :Immich: https://immich.app/[Immich]
 :Immich-CLI: https://immich.app/docs/features/command-line-interface/[Immich CLI]
+:just: https://github.com/casey/just[just]
 :MinIO: https://min.io/[MinIO]
-:nodejs-version: 20.11.0
 :picamera2: https://github.com/raspberrypi/picamera2[picamera2]
 :pip-tools: https://github.com/jazzband/pip-tools[pip-tools]
-:podman: https://podman.io/[podman]
 :Raspberry-Pi-Camera: https://github.com/geerlingguy/pi-camera[Jeff Geerling's Raspberry Pi Camera]
 :Rclone: https://rclone.org/[Rclone]
 :systemd: https://systemd.io/[systemd]
-:Tailscale-Online-Target: https://github.com/jwillikers/tailscale-online-target[Tailscale Online Target]
+
+image:https://github.com/jwillikers/pi-camera/actions/workflows/test.yaml/badge.svg[Tests, link=https://github.com/jwillikers/pi-camera/actions/workflows/test.yaml]
+image:https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white[pre-commit, link=https://github.com/pre-commit/pre-commit]
+image:https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json[Ruff, link=https://github.com/astral-sh/ruff]
 
 A minimal Raspberry Pi camera that automatically syncs your photos.
 It is based on {Raspberry-Pi-Camera} project.
@@ -55,7 +58,8 @@ The camera uses Pimoroni's HyperPixel 4.0 screen which has good support in the R
 The screen also works under Wayland.
 A momentary push button is used to take pictures.
 The HyperPixel 4.0 screen takes up all of the pins, only exposing an I2C bus.
-The PCF8574 I2C GPIO Expander is used to connect the momentary push button to the Raspberry Pi.
+The PCF8574 I2C GPIO Expander is used to connect the momentary push button and GPS to the Raspberry Pi.
+An I2C GPS is used to incorporate {Exif} geolocation metadata in the pictures.
 
 [NOTE]
 ====
@@ -71,6 +75,8 @@ This makes it less suitable for a portable camera than the Raspberry Pi 4.
 * https://shop.pimoroni.com/products/hyperpixel-4?variant=12569485443155[Pimoroni HyperPixel 4.0 - Hi-Res Display for Raspberry Pi - Touch]
 * https://www.adafruit.com/product/5545[Adafruit PCF8574 I2C GPIO Expander]
 * https://www.adafruit.com/product/4209[STEMMA QT / Qwiic JST SH 4-pin to Premium Male Headers Cable - 150mm Long]
+* https://www.adafruit.com/product/4399[STEMMA QT / Qwiic JST SH 4-Pin Cable - 50mm Long]
+* https://www.adafruit.com/product/4415[Adafruit Mini GPS PA1010D - UART and I2C - STEMMA QT]
 * https://amzn.to/3ijIj0C[Twidec 12mm momentary push button]
 * A sufficiently large and performant microSD card.
 The https://www.samsung.com/us/computing/memory-storage/memory-cards/pro-ultimate-adapter-microsdxc-128gb-mb-my128sa-am/[128GB Samsung Pro Ultimate] and https://www.samsung.com/us/computing/memory-storage/memory-cards/pro-endurance-adapter-microsdxc-128gb-mb-mj128ka-am/[128GB Samsung Pro Endurance] are two good options.
@@ -123,7 +129,9 @@ The associated cable colors are documented in the following table.
 | Power | Red
 |===
 
-. Attach the JST SH plug on STEMMA QT / Qwiic cable to the PCF8574 breakout.
+. Attach the JST SH plug on STEMMA QT / Qwiic cable with male headers to the PCF8574 breakout.
+It can be connected to either end of the board.
+. Attach one of the JST SH plugs on the other STEMMA QT / Qwiic cable to the Adafruit Mini GPS PA1010D breakout.
 It can be connected to either end of the board.
 . Connect the flex cable to the 2-lane MIPI CSI camera port on the Raspberry Pi.
 This port is next to the audio jack on the Raspberry Pi 4 Model B.
@@ -149,11 +157,12 @@ Issues https://github.com/raspberrypi/picamera2/issues/492[#492], https://github
 
 == Install
 
-. Install 64-bit full version of https://www.raspberrypi.com/software/[Raspberry Pi OS] to a microSD card.
+. Install the 64-bit full version of https://www.raspberrypi.com/software/[Raspberry Pi OS] to a microSD card.
 The configuration files assume the primary user is `pi-camera`, which can be configured when using Raspberry Pi Imager to write the image.
 This project has been tested with Raspberry Pi OS 5 based on Debian Bookworm.
 . Insert the microSD card into the Raspberry Pi.
 . Boot the Raspberry Pi.
+. Install {just} by following the instructions in the https://github.com/casey/just?tab=readme-ov-file#installation[installation section].
 . Follow the instructions to configure the storage service and install the autoupload systemd units in the {AutoUpload} README to automatically upload photos in the `~/Pictures` directory.
 The commands to enable the units should look similar to the following.
 These use the _system_ units, though _user_ units work just as well.
@@ -172,16 +181,16 @@ Rclone::
 sudo systemctl enable --now autoupload-rclone@$(systemd-escape --path ~/Pictures).path
 ----
 
+. For security, be sure to disable password-based SSH authentication.
+After your public key has been added to the `~/.ssh/authorized_keys` file on the Pi Camera, this can be configured in the `/etc/ssh/sshd_config` file.
+You can follow the instructions in my https://github.com/jwillikers/openssh-config[OpenSSH Config] repository to accomplish this and a few other optimizations.
+
 . Make the `~/Projects` directory.
 +
 [,sh]
 ----
 mkdir --parents ~/Projects
 ----
-
-. For security, be sure to disable password-based SSH authentication.
-After your public key has been added to the `~/.ssh/authorized_keys` file on the Pi Camera, this can be configured in the `/etc/ssh/sshd_config` file.
-You can follow the instructions in my https://github.com/jwillikers/openssh-config[OpenSSH Config] repository to accomplish this and a few other optimizations.
 
 . Clone this project's repository to the `~/Projects` directory.
 +
@@ -190,14 +199,6 @@ You can follow the instructions in my https://github.com/jwillikers/openssh-conf
 git -C ~/Projects clone https://github.com/jwillikers/pi-camera.git
 ----
 
-. Append the contents of the `boot/firmware/config.txt.append` file to the `/boot/firmware/config.txt` file.
-+
-[,sh]
-----
-cat boot/firmware/config.txt.append | tee append /boot/firmware/config.txt
-----
-
-. Reboot.
 . Update the package lists.
 +
 [,sh]
@@ -212,75 +213,40 @@ sudo apt-get update
 sudo apt-get --yes full-upgrade
 ----
 
-. Install the necessary and unnecessary packages.
-I like fish, tmux, and vim, what can I say?
-+
-[,sh]
-----
-sudo apt-get --yes install firewalld fish git python3-dev python3-picamera2 python3-venv raspberrypi-ui-mods tmux vim wlr-randr
-----
-
 . Change to the project's root directory.
 +
 [,sh]
 ----
-cd pi-camera
+cd ~/Projects/pi-camera
 ----
 
-. Create a symlink of the `wayfire.ini` file in the `~/.config` directory.
+. Set up the environment with `just init`.
+This will install dependencies and initialize the virtual environment.
 +
 [,sh]
 ----
-ln --relative --symbolic wayfire.ini ~/.config/wayfire.ini
+just init
 ----
 
-. Create a virtual environment for the project.
+. Reboot for the updated `/boot/firmware/config.txt` file to take effect.
 +
 [,sh]
 ----
-python -m venv --system-site-packages ~/pi-camera-venv
+sudo systemctl reboot
 ----
 
-. Activate the virtual environment.
+. Use `just run` to run the `camera.py` Python script inside the virtual environment.
 +
 [,sh]
 ----
-source ~/pi-camera-venv/bin/activate.fish
+just run
 ----
 
-. Install the dependencies in the venv.
+. Install and activate the systemd service with `just install`.
 +
 [,sh]
 ----
-python -m pip install --requirement requirements.txt
-----
-
-. Exit the virtual environment.
-+
-[,sh]
-----
-exit
-----
-
-. Create the systemd directory for user units.
-+
-[,sh]
-----
-mkdir --parents ~/.config/systemd/user
-----
-
-. Symlink the systemd unit to the `~/.config/systemd/user/` directory.
-+
-[,sh]
-----
-ln --force --relative --symbolic systemd/user/* ~/.config/systemd/user/
-----
-
-. Enable and start the `pi-camera.service` systemd unit.
-+
-[,sh]
-----
-systemctl --user enable --now pi-camera.service
+just install
 ----
 
 === Configure Screen Orientation
@@ -319,75 +285,69 @@ WAYLAND_DISPLAY=wayland-1 wlr-randr --output DPI-1 --transform 90
 transform = 90
 ----
 
+== HDR
+
+The Raspberry Pi Camera Module 3 supports HDR, but only at a lower resolution.
+HDR support has to toggled when `camera.py` isn't running.
+
+. Show the available V4L subdevices.
++
+[,sh]
+----
+ls /dev/v4l-subdev*
+/dev/v4l-subdev0  /dev/v4l-subdev1  /dev/v4l-subdev2  /dev/v4l-subdev3
+----
+
+. To enable HDR support for the Raspberry Pi Camera Module 3, use the following command on one of the V4L subdevices.
+In my case, this ended up being `/dev/v4l-subdev2`.
++
+[,sh]
+----
+just hdr /dev/v4l-subdev2
+----
+
+. To disable HDR support for the Raspberry Pi Camera Module 3, use this command with the corresponding V4L subdevice.
++
+[,sh]
+----
+just hdr /dev/v4l-subdev2 disable
+----
+
 == Development
 
-It's recommended to use the provided {pre-commit} checks when developing.
-
-. Create a virtual environment.
+. Run `just init-dev` to initialize the virtual environment for development.
+This will install all of the necessary dependencies and the {pre-commit} hooks.
 +
 [,sh]
 ----
-python -m venv .env
+just init-dev
 ----
 
-. Activate the virtual environment.
+. Run the tests with https://docs.pytest.org/en/latest/[pytest] by running `just test`.
 +
 [,sh]
 ----
-source .env/bin/activate.fish
+just test
 ----
 
-. Install the development packages.
+. To update dependencies, run `just update`.
 +
 [,sh]
 ----
-python -m pip install -r requirements-dev.txt
+just update
 ----
 
-. Install the packages.
-This project uses pip-tools to synchronize virtual environments for development.
-Sync your virtual environments packages with those pinned in the `requirements.txt` and `requirements-dev.txt` files with the `pip-sync` command.
+. Use `just --list` to list other available tasks.
 +
 [,sh]
 ----
-pip-sync requirements-dev.txt requirements.txt
-----
-
-. Install the Git hooks for pre-commit.
-+
-[,sh]
-----
-pre-commit install
-----
-
-. Upgrade the packages pinned in the `requirements.txt` file with the `pip-compile` command.
-+
-[,sh]
-----
-pip-compile \
-  --allow-unsafe \
-  --generate-hashes \
-  --reuse-hashes \
-  --upgrade \
-  requirements.in
-----
-
-. The pinned development packages in the `requirements-dev.txt` file can be upgraded in the same fashion.
-+
-[,sh]
-----
-pip-compile \
-  --allow-unsafe \
-  --generate-hashes \
-  --reuse-hashes \
-  --upgrade \
-  requirements-dev.in
+just --list
 ----
 
 == todo
 
-* Add EXIF metadata to the image files like GPS coordinates.
-Of course, then I need to add a GPS.
+* Real logging
+* mypy
 * Make the camera application more robust.
 It crashes really easily.
 * Incorporate some sort of power button to safely shutdown.
@@ -397,6 +357,8 @@ It crashes really easily.
 
 * Jeff Geerling's https://github.com/geerlingguy/pi-camera[Raspberry Pi Camera]
 * https://github.com/Gordon999/RPiCamGUI[RPiCamGUI]
+* https://docs.circuitpython.org/projects/gps/en/latest/[Adafruit GPS Library Documentation]
+* https://github.com/raspberrypi/picamera2/blob/main/apps/app_full.py[picamera2 Full App]
 
 == Code of Conduct
 
