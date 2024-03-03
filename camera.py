@@ -56,24 +56,28 @@ def main():
         while lores_size[0] > 800:
             lores_size = (lores_size[0] // 2 & ~1, lores_size[1] // 2 & ~1)
 
-        # Set up QT preview window.
-        capture_config = picam2.create_still_configuration(
-            lores={
-                # Only Pi 5 and newer can use formats besides YUV here which may be faster in the preview Window.
+        preview_config = picam2.create_preview_configuration(
+            main={
+                # Only Pi 5 and newer can use formats besides YUV here.
+                # This avoids having to convert the image format for OpenCV later.
                 # "format": "RGB888",
                 "size": lores_size,
             },
-            buffer_count=4,
+        )
+        picam2.configure(preview_config)
+
+        # Set up QT preview window.
+        capture_config = picam2.create_still_configuration(
             # Don't display anything in the preview window since the system is running headless.
-            display="lores",
-            encode="lores",
+            # display=None,
+            # encode=None,
             # Only rotating 180 degrees is supported...
             # transform=Transform(hflip=True, vflip=True),
+            # Enable autofocus.
+            controls={"AfMode": controls.AfModeEnum.Auto}
+            if "AfMode" in picam2.camera_controls
+            else {},
         )
-        picam2.configure(capture_config)
-        # Enable autofocus.
-        if "AfMode" in picam2.camera_controls:
-            picam2.set_controls({"AfMode": controls.AfModeEnum.Auto})
         picam2.start_preview(Preview.QTGL, x=0, y=0, width=800, height=480)
         picam2.start()
 
@@ -92,11 +96,6 @@ def main():
             cur_state = button.value
             if cur_state != prev_state:
                 if not cur_state:
-                    gps.update()
-                    if "AfMode" in picam2.camera_controls:
-                        for _ in range(5):
-                            if picam2.autofocus_cycle():
-                                break
                     exif_dict = {}
                     if gps.update() and gps.has_fix:
                         latitude = degrees_decimal_to_degrees_minutes_seconds(
@@ -159,7 +158,13 @@ def main():
                     else:
                         print("No GPS fix")
                     filename = os.path.join(output_directory, f"{frame}.jpg")
+                    picam2.switch_mode(capture_config)
+                    if "AfMode" in picam2.camera_controls:
+                        for _ in range(15):
+                            if picam2.autofocus_cycle():
+                                break
                     picam2.capture_file(filename, exif_data=exif_dict, format="jpeg")
+                    picam2.switch_mode(preview_config)
                     print(f"Image captured: {filename}")
                     frame += 1
                 else:
