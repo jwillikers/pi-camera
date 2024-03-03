@@ -78,7 +78,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", help="Directory path for the output images.")
     parser.add_argument(
-        "--log-level", help="The log level, i.e. debug, info, warn etc.", default="info"
+        "--log-level", help="The log level, i.e. debug, info, warn etc.", default="warn"
     )
     args = parser.parse_args()
 
