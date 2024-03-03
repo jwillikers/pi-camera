@@ -100,12 +100,9 @@ def main():
             cur_state = button.value
             if cur_state != prev_state:
                 if not cur_state:
-                    gps.update()
+                    focus_cycle_job = None
                     if "AfMode" in picam2.camera_controls:
-                        for _ in range(15):
-                            if picam2.autofocus_cycle():
-                                break
-                            logging.warning("Failed to autofocus")
+                        focus_cycle_job = picam2.autofocus_cycle(wait=False)
                     exif_dict = {}
                     if gps.update() and gps.has_fix:
                         latitude = degrees_decimal_to_degrees_minutes_seconds(
@@ -168,6 +165,9 @@ def main():
                     else:
                         logging.warning("No GPS fix")
                     filename = os.path.join(output_directory, f"{frame}.jpg")
+                    if "AfMode" in picam2.camera_controls:
+                        if not picam2.wait(focus_cycle_job):
+                            logging.warning("Autofocus cycle failed.")
                     picam2.capture_file(filename, exif_data=exif_dict, format="jpeg")
                     logging.info(f"Captured image: {filename}")
                     frame += 1
