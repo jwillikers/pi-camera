@@ -24,7 +24,15 @@ from exif_utils import (
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", help="Directory path for the output images.")
+    parser.add_argument(
+        "--log-level", help="The log level, i.e. debug, info, warn etc.", default="info"
+    )
     args = parser.parse_args()
+
+    numeric_log_level = getattr(logging, args.log_level.upper(), None)
+    if not isinstance(numeric_log_level, int):
+        raise ValueError(f"Invalid log level: {args.log_level}")
+    logging.basicConfig(level=numeric_log_level)
 
     output_directory = os.path.join(os.getenv("HOME"), "Pictures")
     if args.output:
@@ -156,12 +164,12 @@ def main():
                         if gps.isactivedata:
                             gps_ifd[piexif.GPSIFD.GPSStatus] = gps.isactivedata
                         exif_dict = {"GPS": gps_ifd}
-                        logging.info(f"Exif GPS metadata: {gps_ifd}")
+                        logging.debug(f"Exif GPS metadata: {gps_ifd}")
                     else:
                         logging.warning("No GPS fix")
                     filename = os.path.join(output_directory, f"{frame}.jpg")
                     picam2.capture_file(filename, exif_data=exif_dict, format="jpeg")
-                    logging.info(f"Image captured: {filename}")
+                    logging.info(f"Captured image: {filename}")
                     frame += 1
             prev_state = cur_state
             gps.update()
