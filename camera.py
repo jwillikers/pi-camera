@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 import signal
 import sys
@@ -29,8 +30,8 @@ def main():
     if args.output:
         output_directory = args.output
     if not os.path.isdir(output_directory):
-        print(f"The output directory '{output_directory}' does not exist")
-        print(f"Creating the output directory '{output_directory}'")
+        logging.info(f"The output directory '{output_directory}' does not exist")
+        logging.info(f"Creating the output directory '{output_directory}'")
         try:
             os.mkdir(output_directory)
         except FileExistsError:
@@ -78,14 +79,13 @@ def main():
         picam2.start()
 
         def signal_handler(_sig, _frame):
-            print("You pressed Ctrl+C!")
+            logging.info("You pressed Ctrl+C!")
             picam2.stop()
             sys.exit(0)
 
         signal.signal(signal.SIGINT, signal_handler)
 
         time.sleep(2)
-        print("Preview started")
 
         prev_state = button.value
         while True:
@@ -94,9 +94,10 @@ def main():
                 if not cur_state:
                     gps.update()
                     if "AfMode" in picam2.camera_controls:
-                        for _ in range(5):
+                        for _ in range(15):
                             if picam2.autofocus_cycle():
                                 break
+                            logging.warning("Failed to autofocus")
                     exif_dict = {}
                     if gps.update() and gps.has_fix:
                         latitude = degrees_decimal_to_degrees_minutes_seconds(
@@ -155,15 +156,13 @@ def main():
                         if gps.isactivedata:
                             gps_ifd[piexif.GPSIFD.GPSStatus] = gps.isactivedata
                         exif_dict = {"GPS": gps_ifd}
-                        print(f"Exif GPS metadata: {gps_ifd}")
+                        logging.info(f"Exif GPS metadata: {gps_ifd}")
                     else:
-                        print("No GPS fix")
+                        logging.warning("No GPS fix")
                     filename = os.path.join(output_directory, f"{frame}.jpg")
                     picam2.capture_file(filename, exif_data=exif_dict, format="jpeg")
-                    print(f"Image captured: {filename}")
+                    logging.info(f"Image captured: {filename}")
                     frame += 1
-                else:
-                    print("BTN is up")
             prev_state = cur_state
             gps.update()
             # debounce

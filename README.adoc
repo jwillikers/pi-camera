@@ -346,7 +346,6 @@ just --list
 
 == todo
 
-* Real logging
 * mypy
 * Make the camera application more robust.
 It crashes really easily.
