@@ -40,7 +40,8 @@ install: init
     mkdir --parents "{{ config_directory() }}/systemd/user"
     ln --force --relative --symbolic systemd/user/* "{{ config_directory() }}/systemd/user/"
     systemctl --user daemon-reload
-    systemctl --user enable --now pi-camera.service
+    systemctl --user enable pi-camera.service
+    systemctl --user restart pi-camera.service
 
 alias l := lint
 
