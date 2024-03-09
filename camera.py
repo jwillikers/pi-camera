@@ -75,8 +75,11 @@ def get_gps_exif_metadata(gps: adafruit_gps.GPS) -> dict:
     return gps_ifd
 
 
-def captured_file(filename: str):
-    logging.info(f"Captured image: {filename}")
+def captured_file(filename: str, job):
+    if job:
+        logging.info(f"Captured image: {filename}")
+    else:
+        logging.error(f"Failed to capture image image: {filename}")
 
 
 def main():
