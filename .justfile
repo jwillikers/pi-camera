@@ -20,7 +20,7 @@ init:
     ln --force --relative --symbolic wayfire.ini "{{ config_directory() }}/wayfire.ini"
     distro=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release)
     if [ "$distro" = "debian" ]; then
-        sudo apt-get --yes install firewalld python3-dev python3-picamera2 python3-venv raspberrypi-ui-mods wlr-randr
+        sudo apt-get --yes install chrony firewalld python3-dev python3-picamera2 python3-venv raspberrypi-ui-mods wlr-randr
     fi
     [ -d venv ] || python -m venv --system-site-packages venv
     venv/bin/python -m pip install --requirement requirements.txt
